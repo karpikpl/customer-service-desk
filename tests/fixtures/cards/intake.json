@@ -1,0 +1,174 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Customer Service Desk: Report an issue. Continue by typing your request.",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "spacing": "None",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Customer",
+              "wrap": true,
+              "size": "ExtraLarge",
+              "isSubtle": false,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "SERVICE DESK",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": false,
+              "weight": "Bolder",
+              "horizontalAlignment": "Right"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Employee support",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None",
+              "horizontalAlignment": "Right"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Report an issue",
+      "wrap": true,
+      "size": "Large",
+      "isSubtle": false,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Describe what happened and how it affects your work.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": true
+    },
+    {
+      "type": "Input.Text",
+      "id": "title",
+      "label": "Issue title",
+      "isMultiline": false,
+      "isRequired": true,
+      "errorMessage": "Please complete this field.",
+      "maxLength": 160,
+      "value": ""
+    },
+    {
+      "type": "Input.Text",
+      "id": "description",
+      "label": "Description and impact",
+      "isMultiline": true,
+      "isRequired": true,
+      "errorMessage": "Please complete this field.",
+      "maxLength": 4000,
+      "value": ""
+    },
+    {
+      "type": "TextBlock",
+      "text": "More to share? Type Feedback: followed by your comments.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "id": "response-feedback",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4d Helpful",
+          "verb": "feedback_like",
+          "data": {
+            "verb": "feedback_like"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4d Helpful",
+            "data": {
+              "verb": "feedback_like"
+            },
+            "associatedInputs": "none"
+          }
+        },
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4e Not helpful",
+          "verb": "feedback_dislike",
+          "data": {
+            "verb": "feedback_dislike"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4e Not helpful",
+            "data": {
+              "verb": "feedback_dislike"
+            },
+            "associatedInputs": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Review incident",
+      "verb": "prepare_create",
+      "data": {
+        "verb": "prepare_create"
+      },
+      "associatedInputs": "auto",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Review incident",
+        "data": {
+          "verb": "prepare_create"
+        },
+        "associatedInputs": "auto"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Cancel",
+      "verb": "home",
+      "data": {
+        "verb": "home"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Cancel",
+        "data": {
+          "verb": "home"
+        },
+        "associatedInputs": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Customer Service Desk: Review your change. Continue by typing your request.",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "spacing": "None",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Customer",
+              "wrap": true,
+              "size": "ExtraLarge",
+              "isSubtle": false,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "SERVICE DESK",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": false,
+              "weight": "Bolder",
+              "horizontalAlignment": "Right"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Employee support",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None",
+              "horizontalAlignment": "Right"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Review your change",
+      "wrap": true,
+      "size": "Large",
+      "isSubtle": false,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Comment INC0012345",
+      "wrap": true,
+      "size": "Medium",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "Nothing has been changed. Review exactly what will be sent.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "COMMENTS",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "A test page failed.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "This review expires after a short period. Confirm only once.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "More to share? Type Feedback: followed by your comments.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "id": "response-feedback",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4d Helpful",
+          "verb": "feedback_like",
+          "data": {
+            "verb": "feedback_like"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4d Helpful",
+            "data": {
+              "verb": "feedback_like"
+            },
+            "associatedInputs": "none"
+          }
+        },
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4e Not helpful",
+          "verb": "feedback_dislike",
+          "data": {
+            "verb": "feedback_dislike"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4e Not helpful",
+            "data": {
+              "verb": "feedback_dislike"
+            },
+            "associatedInputs": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Confirm change",
+      "verb": "confirm",
+      "data": {
+        "verb": "confirm",
+        "action_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Confirm change",
+        "data": {
+          "verb": "confirm",
+          "action_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "associatedInputs": "none"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Edit",
+      "verb": "edit",
+      "data": {
+        "verb": "edit",
+        "action_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Edit",
+        "data": {
+          "verb": "edit",
+          "action_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "associatedInputs": "none"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Cancel",
+      "verb": "cancel",
+      "data": {
+        "verb": "cancel",
+        "action_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Cancel",
+        "data": {
+          "verb": "cancel",
+          "action_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "associatedInputs": "none"
+      }
+    }
+  ]
+}

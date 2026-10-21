@@ -1,0 +1,446 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Customer Service Desk: Your incidents. Continue by typing your request.",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "spacing": "None",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Customer",
+              "wrap": true,
+              "size": "ExtraLarge",
+              "isSubtle": false,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "SERVICE DESK",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": false,
+              "weight": "Bolder",
+              "horizontalAlignment": "Right"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Employee support",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None",
+              "horizontalAlignment": "Right"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Your incidents",
+      "wrap": true,
+      "size": "Large",
+      "isSubtle": false,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Page 1 | Open an incident for details and next steps.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": true
+    },
+    {
+      "type": "Table",
+      "columns": [
+        {
+          "width": 4.4
+        },
+        {
+          "width": 1.6
+        },
+        {
+          "width": 1.8
+        },
+        {
+          "width": 2.2
+        }
+      ],
+      "rows": [
+        {
+          "type": "TableRow",
+          "style": "emphasis",
+          "cells": [
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Incident",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false,
+                  "weight": "Bolder"
+                }
+              ]
+            },
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Status",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false,
+                  "weight": "Bolder"
+                }
+              ]
+            },
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Priority",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false,
+                  "weight": "Bolder"
+                }
+              ]
+            },
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Updated \\(UTC\\)",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false,
+                  "weight": "Bolder"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "TableRow",
+          "cells": [
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "ActionSet",
+                  "actions": [
+                    {
+                      "type": "Action.Execute",
+                      "title": "INC0012345",
+                      "verb": "view",
+                      "data": {
+                        "verb": "view",
+                        "incident": "INC0012345"
+                      },
+                      "associatedInputs": "none",
+                      "fallback": {
+                        "type": "Action.Submit",
+                        "title": "INC0012345",
+                        "data": {
+                          "verb": "view",
+                          "incident": "INC0012345"
+                        },
+                        "associatedInputs": "none"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "Printer unavailable on Floor 2",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false
+                }
+              ]
+            },
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "In progress",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false
+                }
+              ]
+            },
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "3 - Moderate",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false
+                }
+              ]
+            },
+            {
+              "type": "TableCell",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "2026-01-01 10:00:00",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "showGridLines": true,
+      "gridStyle": "default",
+      "verticalCellContentAlignment": "Center",
+      "fallback": {
+        "type": "Container",
+        "items": [
+          {
+            "type": "ColumnSet",
+            "separator": false,
+            "columns": [
+              {
+                "type": "Column",
+                "width": 4.4,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Incident",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false,
+                    "weight": "Bolder"
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": 1.6,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Status",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false,
+                    "weight": "Bolder"
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": 1.8,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Priority",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false,
+                    "weight": "Bolder"
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": 2.2,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "Updated \\(UTC\\)",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false,
+                    "weight": "Bolder"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "ColumnSet",
+            "separator": true,
+            "columns": [
+              {
+                "type": "Column",
+                "width": 4.4,
+                "items": [
+                  {
+                    "type": "ActionSet",
+                    "actions": [
+                      {
+                        "type": "Action.Execute",
+                        "title": "INC0012345",
+                        "verb": "view",
+                        "data": {
+                          "verb": "view",
+                          "incident": "INC0012345"
+                        },
+                        "associatedInputs": "none",
+                        "fallback": {
+                          "type": "Action.Submit",
+                          "title": "INC0012345",
+                          "data": {
+                            "verb": "view",
+                            "incident": "INC0012345"
+                          },
+                          "associatedInputs": "none"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": "Printer unavailable on Floor 2",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": 1.6,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "In progress",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": 1.8,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "3 - Moderate",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false
+                  }
+                ]
+              },
+              {
+                "type": "Column",
+                "width": 2.2,
+                "items": [
+                  {
+                    "type": "TextBlock",
+                    "text": "2026-01-01 10:00:00",
+                    "wrap": true,
+                    "size": "Small",
+                    "isSubtle": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "TextBlock",
+      "text": "More to share? Type Feedback: followed by your comments.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "id": "response-feedback",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4d Helpful",
+          "verb": "feedback_like",
+          "data": {
+            "verb": "feedback_like"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4d Helpful",
+            "data": {
+              "verb": "feedback_like"
+            },
+            "associatedInputs": "none"
+          }
+        },
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4e Not helpful",
+          "verb": "feedback_dislike",
+          "data": {
+            "verb": "feedback_dislike"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4e Not helpful",
+            "data": {
+              "verb": "feedback_dislike"
+            },
+            "associatedInputs": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Report an issue",
+      "verb": "intake",
+      "data": {
+        "verb": "intake"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Report an issue",
+        "data": {
+          "verb": "intake"
+        },
+        "associatedInputs": "none"
+      }
+    }
+  ],
+  "msteams": {
+    "width": "Full"
+  }
+}

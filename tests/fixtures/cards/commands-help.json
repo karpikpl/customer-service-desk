@@ -1,0 +1,175 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Customer Service Desk: Service Desk commands. Continue by typing your request.",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "spacing": "None",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Customer",
+              "wrap": true,
+              "size": "ExtraLarge",
+              "isSubtle": false,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "SERVICE DESK",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": false,
+              "weight": "Bolder",
+              "horizontalAlignment": "Right"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Employee support",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None",
+              "horizontalAlignment": "Right"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Service Desk commands",
+      "wrap": true,
+      "size": "Large",
+      "isSubtle": false,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "These commands run directly in the application, without a model call.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/feedback \u2014 Provide feedback \\(optionally add text after the command\\).",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/incident \u2014 Open a new incident form; creation must be enabled and confirmed.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/kb \u2014 Search approved knowledge: /kb printer, or open the search form.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/agent \u2014 Show agent, model, version, and skill details.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/new \u2014 Start fresh; forget model context and invalidate old cases/reviews.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/incidents \u2014 List your incidents, including closed ones; optional page number.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/whoami \u2014 Show your Teams identity and temporary ServiceNow mapping.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "/help \u2014 Show these commands.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "More to share? Type Feedback: followed by your comments.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "id": "response-feedback",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4d Helpful",
+          "verb": "feedback_like",
+          "data": {
+            "verb": "feedback_like"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4d Helpful",
+            "data": {
+              "verb": "feedback_like"
+            },
+            "associatedInputs": "none"
+          }
+        },
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4e Not helpful",
+          "verb": "feedback_dislike",
+          "data": {
+            "verb": "feedback_dislike"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4e Not helpful",
+            "data": {
+              "verb": "feedback_dislike"
+            },
+            "associatedInputs": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": []
+}

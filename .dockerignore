@@ -1,0 +1,17 @@
+.git
+.venv
+.env
+.env.*
+.secrets
+.secrets.*
+!.env.example
+.azure
+tests
+local-secrets
+config/identity-map.json
+config/service-now.json
+**/__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.playwright-mcp

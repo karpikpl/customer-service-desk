@@ -1,0 +1,186 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Customer Service Desk: Provide feedback. Continue by typing your request.",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "spacing": "None",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Customer",
+              "wrap": true,
+              "size": "ExtraLarge",
+              "isSubtle": false,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "SERVICE DESK",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": false,
+              "weight": "Bolder",
+              "horizontalAlignment": "Right"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Employee support",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None",
+              "horizontalAlignment": "Right"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Provide feedback",
+      "wrap": true,
+      "size": "Large",
+      "isSubtle": false,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Feedback goes to Application Insights, not ServiceNow. Do not include passwords or unnecessary personal details.",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": true
+    },
+    {
+      "type": "Input.Text",
+      "id": "feedback_text",
+      "label": "Your feedback",
+      "isMultiline": true,
+      "isRequired": true,
+      "errorMessage": "Please complete this field.",
+      "maxLength": 4000,
+      "value": ""
+    },
+    {
+      "type": "Input.ChoiceSet",
+      "id": "feedback_rating",
+      "label": "Rating",
+      "value": "neutral",
+      "choices": [
+        {
+          "title": "Positive",
+          "value": "positive"
+        },
+        {
+          "title": "Negative",
+          "value": "negative"
+        },
+        {
+          "title": "Suggestion / neutral",
+          "value": "neutral"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "More to share? Type Feedback: followed by your comments.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "id": "response-feedback",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4d Helpful",
+          "verb": "feedback_like",
+          "data": {
+            "verb": "feedback_like"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4d Helpful",
+            "data": {
+              "verb": "feedback_like"
+            },
+            "associatedInputs": "none"
+          }
+        },
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4e Not helpful",
+          "verb": "feedback_dislike",
+          "data": {
+            "verb": "feedback_dislike"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4e Not helpful",
+            "data": {
+              "verb": "feedback_dislike"
+            },
+            "associatedInputs": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "Submit feedback",
+      "verb": "feedback_submit",
+      "data": {
+        "verb": "feedback_submit",
+        "feedback_response_id": "synthetic-response"
+      },
+      "associatedInputs": "auto",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Submit feedback",
+        "data": {
+          "verb": "feedback_submit",
+          "feedback_response_id": "synthetic-response"
+        },
+        "associatedInputs": "auto"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "Cancel",
+      "verb": "home",
+      "data": {
+        "verb": "home"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "Cancel",
+        "data": {
+          "verb": "home"
+        },
+        "associatedInputs": "none"
+      }
+    }
+  ]
+}

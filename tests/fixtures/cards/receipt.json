@@ -1,0 +1,183 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "fallbackText": "Customer Service Desk: Change confirmed. Continue by typing your request. Incident in ServiceNow: https://mock.service-now.com/sp?id=ticket&table=incident&sys_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "spacing": "None",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Customer",
+              "wrap": true,
+              "size": "ExtraLarge",
+              "isSubtle": false,
+              "weight": "Bolder"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "SERVICE DESK",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": false,
+              "weight": "Bolder",
+              "horizontalAlignment": "Right"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Employee support",
+              "wrap": true,
+              "size": "Small",
+              "isSubtle": true,
+              "spacing": "None",
+              "horizontalAlignment": "Right"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Change confirmed",
+      "wrap": true,
+      "size": "Large",
+      "isSubtle": false,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "separator": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "INC0012345",
+      "wrap": true,
+      "size": "Medium",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "Printer unavailable on Floor 2",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": false
+    },
+    {
+      "type": "TextBlock",
+      "text": "ServiceNow status: In progress",
+      "wrap": true,
+      "size": "Default",
+      "isSubtle": true
+    },
+    {
+      "type": "ActionSet",
+      "id": "service-now-incident",
+      "separator": true,
+      "spacing": "Medium",
+      "actions": [
+        {
+          "type": "Action.OpenUrl",
+          "title": "View incident in ServiceNow",
+          "url": "https://mock.service-now.com/sp?id=ticket&table=incident&sys_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "More to share? Type Feedback: followed by your comments.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Medium"
+    },
+    {
+      "type": "ActionSet",
+      "id": "response-feedback",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4d Helpful",
+          "verb": "feedback_like",
+          "data": {
+            "verb": "feedback_like"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4d Helpful",
+            "data": {
+              "verb": "feedback_like"
+            },
+            "associatedInputs": "none"
+          }
+        },
+        {
+          "type": "Action.Execute",
+          "title": "\ud83d\udc4e Not helpful",
+          "verb": "feedback_dislike",
+          "data": {
+            "verb": "feedback_dislike"
+          },
+          "associatedInputs": "none",
+          "fallback": {
+            "type": "Action.Submit",
+            "title": "\ud83d\udc4e Not helpful",
+            "data": {
+              "verb": "feedback_dislike"
+            },
+            "associatedInputs": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Execute",
+      "title": "View incident",
+      "verb": "view",
+      "data": {
+        "verb": "view",
+        "incident": "INC0012345"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "View incident",
+        "data": {
+          "verb": "view",
+          "incident": "INC0012345"
+        },
+        "associatedInputs": "none"
+      }
+    },
+    {
+      "type": "Action.Execute",
+      "title": "My incidents",
+      "verb": "list",
+      "data": {
+        "verb": "list"
+      },
+      "associatedInputs": "none",
+      "fallback": {
+        "type": "Action.Submit",
+        "title": "My incidents",
+        "data": {
+          "verb": "list"
+        },
+        "associatedInputs": "none"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+.git/
+.venv/
+.env
+.env.*
+.secrets
+.secrets.*
+.azure/
+local-secrets/
+config/identity-map.json
+config/service-now.json
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/

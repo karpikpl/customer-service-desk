@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+    azd: '>=1.35.1'
+    extensions:
+        microsoft.foundry: '>=1.0.0-beta.2'
+name: customer-service-desk
+services:
+    foundry-project:
+        host: azure.ai.project
+        endpoint: ${FOUNDRY_PROJECT_ENDPOINT}
+    service-desk:
+        project: .
+        host: azure.ai.agent
+        language: docker
+        uses:
+            - foundry-project
+        env:
+            AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+            DESK_CREDENTIALS_SECRET: ${DESK_CREDENTIALS_SECRET=snow-credentials}
+            DESK_KEY_VAULT_URL: ${DESK_KEY_VAULT_URL}
+            DESK_SNOW_URL: ${DESK_SNOW_URL}
+            DESK_SNOW_PORTAL_PATH: ${DESK_SNOW_PORTAL_PATH=/sp}
+            DESK_FEEDBACK_CONNECTION_STRING: ${DESK_FEEDBACK_CONNECTION_STRING}
+            DESK_TENANT_ID: ${DESK_TENANT_ID}
+            TOOLBOX_ENDPOINT: ${TOOLBOX_ENDPOINT}
+        agentEndpoint:
+            authorizationSchemes:
+                - type: BotServiceRbac
+            protocols:
+                - activity
+        container:
+            resources:
+                cpu: "1"
+                memory: 2Gi
+        description: Identity-scoped ServiceNow incidents and Toolbox-powered troubleshooting in Teams.
+        displayName: Customer Service Desk
+        kind: hosted
+        name: customer-service-desk
+        protocols:
+            - protocol: activity
+              version: 2.0.0
+        startupCommand: python main.py
+infra:
+    provider: microsoft.foundry

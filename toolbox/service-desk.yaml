@@ -1,0 +1,11 @@
+# azd ai toolbox create service-desk --from-file ./toolbox/service-desk.yaml
+# Upload the skill in this Foundry project first. Omit version to follow default.
+description: Application-managed Customer Service Desk troubleshooting skills
+skills:
+  - name: printer-troubleshooting
+  - name: email-troubleshooting
+  - name: connectivity-troubleshooting
+  - name: account-access-troubleshooting
+  - name: general-support
+# ServiceNow operations remain in the application's separately approved boundary.
+tools: []
