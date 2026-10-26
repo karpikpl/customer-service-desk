@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from base64 import b64decode
+from importlib.resources import files
 from pathlib import Path
 
 import jsonschema
@@ -72,9 +74,12 @@ def gallery() -> dict[str, dict]:
         "incident-list": cards.incidents([incident], 0),
         "incident-detail": cards.detail(incident, policy, "https://mock.service-now.com/sp"),
         "empty-list": cards.incidents([], 0),
-        "intake": cards.intake(),
-        "comment": cards.comment_form(incident.number),
-        "resolve": cards.resolve_form(incident.number, policy),
+        "intake": cards.intake(
+            classifications={"hardware": "Hardware", "software:email": "Software / Email"},
+            action_id="e" * 32,
+        ),
+        "comment": cards.comment_form(incident.number, action_id="e" * 32),
+        "resolve": cards.resolve_form(incident.number, policy, action_id="e" * 32),
         "review": cards.review(draft),
         "receipt": cards.receipt(
             draft.model_copy(update={"status": "succeeded", "result": incident}),
@@ -105,7 +110,7 @@ def gallery() -> dict[str, dict]:
             "Access help", "Your account is not mapped. Contact service desk support."
         ),
     }
-    return {name: cards.with_feedback(value) for name, value in result.items()}
+    return result
 
 
 @pytest.mark.parametrize("name", list(gallery()))
@@ -131,19 +136,41 @@ def test_cards_validate_against_official_schema_and_snapshots(name):
 def test_all_cards_use_customer_wordmark_and_accessible_service_identity(name):
     header = gallery()[name]["body"][0]
     logo = header["columns"][0]["items"][0]
-    assert logo["type"] == "TextBlock"
-    assert logo["text"] == "Customer"
-    assert logo["size"] == "ExtraLarge"
-    assert logo["weight"] == "Bolder"
-    assert "url" not in logo
+    assert logo == {
+        "type": "Image",
+        "url": cards.CUSTOMER_LOGO,
+        "altText": "Customer",
+        "width": "168px",
+        "height": "56px",
+        "backgroundColor": "#FFFFFF",
+    }
     assert header["columns"][1]["items"][0]["text"] == "SERVICE DESK"
     assert "Customer Service Desk" in gallery()[name]["fallbackText"]
 
 
+def test_customer_logo_is_a_small_self_contained_packaged_red_png():
+    prefix = "data:image/png;base64,"
+    assert cards.CUSTOMER_LOGO.startswith(prefix)
+    image = b64decode(cards.CUSTOMER_LOGO.removeprefix(prefix), validate=True)
+    assert image == files("service_desk").joinpath("assets/customer-logo.png").read_bytes()
+    assert len(image) <= 1000
+    assert image[:8] == b"\x89PNG\r\n\x1a\n"
+    assert int.from_bytes(image[16:20], "big") == 336
+    assert int.from_bytes(image[20:24], "big") == 112
+    chunks = {}
+    position = 8
+    while position < len(image):
+        length = int.from_bytes(image[position : position + 4], "big")
+        kind = image[position + 4 : position + 8]
+        chunks[kind] = image[position + 8 : position + 8 + length]
+        position += length + 12
+    assert chunks[b"PLTE"] == bytes((255, 255, 255, 201, 24, 50))
+    assert b"tRNS" not in chunks
+
+
 @pytest.mark.parametrize("name", list(gallery()))
-def test_cards_keep_feedback_and_only_link_to_specific_service_now_records(name):
+def test_cards_avoid_duplicate_feedback_and_only_link_to_specific_service_now_records(name):
     value = gallery()[name]
-    assert cards.with_feedback(value) == value
     assert "service-now-portal" not in str(value)
     links = [
         action
@@ -162,8 +189,10 @@ def test_cards_keep_feedback_and_only_link_to_specific_service_now_records(name)
         assert links[0]["url"].endswith("kb_view.do?sys_kb_id=" + "a" * 32)
     else:
         assert links == []
-    feedback = next(item for item in value["body"] if item.get("id") == "response-feedback")
-    assert [a["verb"] for a in feedback["actions"]] == ["feedback_like", "feedback_dislike"]
+    assert not any(item.get("id") == "response-feedback" for item in value["body"])
+    assert "feedback_like" not in json.dumps(value)
+    assert "feedback_dislike" not in json.dumps(value)
+    assert "More to share?" not in json.dumps(value)
 
 
 def test_read_only_incident_keeps_navigation_and_explains_comment_policy():

@@ -92,17 +92,16 @@ async def test_model_reply_and_cards_do_not_depend_on_teams_streaming(
         send_activity=AsyncMock(),
     )
     await host.agent_app.handlers["message"](turn, None)
-    assert turn.send_activity.await_count == 2
-    assert (
-        turn.send_activity.call_args_list[0].args[0].attachments[0].content["body"][2]["text"]
-        == "Please describe your issue."
-    )
+    turn.send_activity.assert_awaited_once()
     message = turn.send_activity.call_args.args[0]
     assert message.text is None
-    assert message.attachments[0].content == cards.with_feedback(card)
+    assert message.attachments[0].content == card
 
 
-@pytest.mark.parametrize("interaction", ["options", "question"])
+@pytest.mark.parametrize(
+    "interaction",
+    ["options", "question", "outcome", "intake", "comment", "resolve", "review", "receipt"],
+)
 @pytest.mark.parametrize("invoke", [False, True])
 async def test_interactive_question_delivers_only_the_card_with_its_controls(
     monkeypatch, snow, memory, principal, activity, interaction, invoke
@@ -119,9 +118,17 @@ async def test_interactive_question_delivers_only_the_card_with_its_controls(
             "c" * 32,
         )
         expected = ["Local checks", "Remote checks"]
-    else:
+    elif interaction == "question":
         card = cards.case_question("Printing", "What error does the printer show?", "c" * 32)
         expected = ["Continue", "I don't know"]
+    elif interaction == "outcome":
+        card = cards.troubleshooting("Printing", "Check the display.", "General guidance", "c" * 32)
+        expected = [action["title"] for action in card["actions"]]
+    else:
+        from .test_cards import gallery
+
+        card = gallery()[interaction]
+        expected = [action["title"] for action in card["actions"]]
     context.outbox.append(card)
     host, runtime = compose(monkeypatch, context)
 
@@ -164,10 +171,11 @@ async def test_interactive_question_delivers_only_the_card_with_its_controls(
         message = turn.send_activity.call_args.args[0]
     turn.send_activity.assert_awaited_once()
     rendered = message.attachments[0].content
-    assert rendered == cards.with_feedback(card)
+    assert rendered == card
+    assert message.channel_data["feedbackLoop"] == {"type": "default"}
     assert [action["title"] for action in rendered["actions"]] == expected
     assert "service-now-portal" not in str(rendered)
-    assert "mock.service-now.com" not in str(rendered)
+    assert ("mock.service-now.com" in str(rendered)) is (interaction == "receipt")
 
 
 async def test_typed_option_is_dispatched_before_model_continuation(

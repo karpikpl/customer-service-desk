@@ -15,8 +15,9 @@ from azure.ai.agentserver.activity import ActivityAgentServerHost
 from azure.ai.agentserver.core import get_request_context
 from azure.identity.aio import DefaultAzureCredential
 from microsoft_agents.activity import Activity, ActivityTypes, Attachment, InvokeResponse
+from opentelemetry import trace
 
-from service_desk import cards, commands
+from service_desk import cards, commands, telemetry
 from service_desk.actions import Actions
 from service_desk.activities import CardAction, dispatch, match_case_option, parse_action
 from service_desk.agent import DeskAgent
@@ -67,8 +68,10 @@ class Runtime:
         self.pending: set[asyncio.Task[None]] = set()
         self.feedback = FeedbackRecorder(settings.feedback_connection_string.get_secret_value())
 
+    @telemetry.traced("initialize")
     async def initialize(self) -> None:
         async with self.init_lock:
+            trace.get_current_span().set_attribute("desk.cold_initialization", self.snow is None)
             if self.snow is None:
                 private = await load_private(self.settings, self.credential)
                 self.mapper = IdentityMapper(self.settings.tenant_id, private.identities)
@@ -81,21 +84,33 @@ class Runtime:
         assert self.mapper is not None and self.snow is not None
         principal = self.mapper.resolve(activity)
         lock = self.locks.setdefault(principal.scope, asyncio.Lock())
-        async with lock:
-            state = await FoundryState.open(self.credential)
+        with telemetry.operation("conversation_lock"):
+            await lock.acquire()
+        try:
+            state = await FoundryState.open(
+                self.credential, store_name=self.settings.state_store_name
+            )
             try:
                 principal = await conversation_principal(state, principal, refresh=True)
                 yield ToolContext(
                     principal=principal,
                     snow=self.snow,
                     state=state,
-                    actions=Actions(self.snow, state, self.settings.confirmation_ttl),
+                    actions=Actions(
+                        self.snow,
+                        state,
+                        self.settings.confirmation_ttl,
+                        require_confirmation=self.settings.require_write_confirmation,
+                    ),
                     toolbox=self.toolbox,
                     call_id=call_id,
                     portal_path=self.settings.snow_portal_path,
+                    request_id=activity.get("id") or call_id,
                 )
             finally:
                 await state.close()
+        finally:
+            lock.release()
 
     async def close(self) -> None:
         if self.pending:
@@ -121,9 +136,9 @@ def feedback_message(message: Activity) -> Activity:
     return message
 
 
+@telemetry.traced("teams.card")
 async def deliver(context: Any, card: cards.Card, *, update: bool = False) -> str:
     # Teams splits text plus a card into two messages, which cannot be updated together.
-    card = cards.with_feedback(card)
     message = feedback_message(
         Activity(
             type=ActivityTypes.message,
@@ -134,12 +149,15 @@ async def deliver(context: Any, card: cards.Card, *, update: bool = False) -> st
     if update and context.activity.reply_to_id:
         message.id = context.activity.reply_to_id
         await context.update_activity(message)
+        telemetry.delivered()
         return message.id
     else:
         response = await context.send_activity(message)
+        telemetry.delivered()
         return response.id if isinstance(response.id, str) else ""
 
 
+@telemetry.traced("teams.knowledge")
 async def deliver_knowledge(
     context: Any,
     answer: str,
@@ -156,7 +174,7 @@ async def deliver_knowledge(
         )
     if not sources:
         body += (
-            "\n\n_No approved KB source was retrieved. "
+            "\n\n_No published KB source was retrieved. "
             "Any troubleshooting advice is general guidance._"
         )
     body += "\n\nUse the feedback controls or `/feedback` to share feedback."
@@ -166,8 +184,10 @@ async def deliver_knowledge(
     if update and context.activity.reply_to_id:
         message.id = context.activity.reply_to_id
         await context.update_activity(message)
+        telemetry.delivered()
         return message.id
     response = await context.send_activity(message)
+    telemetry.delivered()
     return response.id if isinstance(response.id, str) else ""
 
 
@@ -272,7 +292,10 @@ def create_host(settings: Settings) -> ActivityAgentServerHost:
                     await runtime.agent.reset(turn.principal)
                     await reset_conversation(turn.state, turn.principal)
                     recent_replies.pop(response_key(activity), None)
-                    card = cards.welcome(sender.get("name") or "")
+                    card = cards.welcome(
+                        sender.get("name") or "",
+                        require_confirmation=settings.require_write_confirmation,
+                    )
                     card["body"].insert(
                         2,
                         cards.text(
@@ -319,26 +342,37 @@ def create_host(settings: Settings) -> ActivityAgentServerHost:
                 if member.get("id") == sender.get("id"):
                     name = member.get("name") or ""
                     break
-        await send_card(context, cards.welcome(name), update=update)
+        await send_card(
+            context,
+            cards.welcome(name, require_confirmation=settings.require_write_confirmation),
+            update=update,
+        )
 
     @host.shutdown_handler
     async def shutdown() -> None:
         await runtime.close()
 
     async def process(context: Any, *, update: bool = False) -> None:
+        with telemetry.turn():
+            await process_inner(context, update=update)
+
+    async def process_inner(context: Any, *, update: bool = False) -> None:
         activity = context.activity.model_dump(by_alias=True, exclude_none=True)
         try:
             action = parse_action(activity)
             prompt = (activity.get("text") or "").strip()
             command = commands.parse_command(prompt) if not action else None
+            telemetry.route("action" if action else "conversation", action.verb if action else "")
             if action and action.verb in ("kb_form", "kb_search"):
                 if action.verb == "kb_search" and not action.kb_query.strip():
                     raise DeskError("Please enter knowledge search words.")
                 command = commands.Command("kb", action.kb_query.strip())
             if command:
+                telemetry.route("command", command.name)
                 await handle_command(context, activity, command, update=update)
                 return
             if action and action.verb in ("feedback_like", "feedback_dislike", "feedback_submit"):
+                telemetry.route("feedback")
                 record_card_feedback(activity, action)
                 await send_card(
                     context,
@@ -352,6 +386,7 @@ def create_host(settings: Settings) -> ActivityAgentServerHost:
             if (action and action.verb == "home") or (
                 not action and (not prompt or _GREETING.fullmatch(prompt))
             ):
+                telemetry.route("greeting")
                 await send_welcome(context, update=update)
                 return
             rating = detect_feedback(prompt) if not action else None
@@ -359,6 +394,7 @@ def create_host(settings: Settings) -> ActivityAgentServerHost:
                 hosted_call_id()
                 record_message_feedback(activity, rating)
                 if feedback_only(prompt):
+                    telemetry.route("feedback")
                     await send_card(
                         context,
                         cards.notice(
@@ -395,19 +431,31 @@ def create_host(settings: Settings) -> ActivityAgentServerHost:
                     remember_reply(context, response_id)
                     return
                 continuation = cards.follow_up(active_case=bool(await turn.active_case()))
-                has_question = any(
-                    action.get("verb") in ("case_option", "case_answer")
+                has_interaction = any(
+                    action.get("verb")
+                    in (
+                        "case_option",
+                        "case_answer",
+                        "case_worked",
+                        "case_failed",
+                        "prepare_create",
+                        "prepare_comment",
+                        "prepare_resolve",
+                        "confirm",
+                    )
                     for card in turn.outbox
                     for action in card.get("actions", [])
-                )
-                if final and not has_question:
+                ) or any(card["body"][1]["text"] == "Change confirmed" for card in turn.outbox)
+                if final and not has_interaction:
                     await send_card(context, cards.answer(final))
                 for card in turn.outbox or [continuation]:
                     await send_card(context, card, update=update)
                     update = False
         except DeskError as exc:
+            telemetry.handled_error(exc)
             await send_card(context, cards.notice("Unable to continue", str(exc)), update=update)
         except Exception as exc:
+            telemetry.handled_error(exc)
             # SDK/transport failures are sanitized at the Activity boundary.
             logger.error(
                 "Activity failed (%s); inspect correlated platform trace.", type(exc).__name__
@@ -511,7 +559,7 @@ def create_host(settings: Settings) -> ActivityAgentServerHost:
                     body={
                         "statusCode": 200,
                         "type": "application/vnd.microsoft.card.adaptive",
-                        "value": cards.with_feedback(response_card),
+                        "value": response_card,
                     },
                 ),
             )

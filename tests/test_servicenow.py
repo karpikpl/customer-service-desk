@@ -72,13 +72,7 @@ async def test_api_errors_do_not_expose_response_or_retry(policy, principal, sta
         await client.close()
 
 
-async def test_knowledge_disabled_without_verified_audience(snow, requests):
-    with pytest.raises(DeskError, match="general guidance"):
-        await snow.search_knowledge("printer")
-    assert not requests
-
-
-async def test_knowledge_allowlist_and_citations(principal):
+async def test_knowledge_covers_all_bases_without_extra_configuration():
     records = [
         {
             "sys_id": "b" * 32,
@@ -93,17 +87,18 @@ async def test_knowledge_allowlist_and_citations(principal):
         calls.append(request)
         return httpx.Response(200, json={"result": records})
 
-    policy = SnowPolicy(employee_knowledge_bases=["c" * 32], knowledge_audience_verified=True)
     client = SnowClient(
         "https://mock.service-now.com",
         Credentials(username="x", password="y"),
-        policy,
+        SnowPolicy(),
         transport=httpx.MockTransport(handle),
     )
     try:
         articles = await client.search_knowledge("printer")
         assert articles[0].url.startswith("https://mock.service-now.com/kb_view.do?")
-        assert "kb_knowledge_baseIN" + "c" * 32 in calls[0].url.params["sysparm_query"]
+        assert calls[0].url.params["sysparm_query"] == (
+            "workflow_state=published^active=true^short_descriptionLIKEprinter"
+        )
         with pytest.raises(DeskError):
             await client.search_knowledge("printer^ORactive=true")
     finally:
@@ -111,7 +106,7 @@ async def test_knowledge_allowlist_and_citations(principal):
 
 
 @pytest.mark.parametrize("allowed_article", ["b" * 32, "d" * 32])
-async def test_article_allowlist_narrows_base_access_and_rechecks_results(allowed_article):
+async def test_legacy_allowlist_does_not_restrict_published_knowledge(allowed_article):
     calls = []
 
     def handle(request):
@@ -141,15 +136,10 @@ async def test_article_allowlist_narrows_base_access_and_rechecks_results(allowe
         transport=httpx.MockTransport(handle),
     )
     try:
-        if allowed_article == "b" * 32:
-            assert (
-                len(await client.search_knowledge("Printer troubleshooting - remote checks")) == 1
-            )
-        else:
-            with pytest.raises(DeskError, match="outside the approved"):
-                await client.search_knowledge("Printer troubleshooting - remote checks")
+        assert len(await client.search_knowledge("Printer troubleshooting - remote checks")) == 1
         query = calls[0].url.params["sysparm_query"]
-        assert "^sys_idIN" + allowed_article in query
+        assert "sys_idIN" not in query
+        assert "kb_knowledge_base" not in query
         assert query.startswith("workflow_state=published^active=true^")
     finally:
         await client.close()

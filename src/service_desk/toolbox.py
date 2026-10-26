@@ -26,6 +26,8 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import ListResourcesResult, ReadResourceResult, Resource, TextResourceContents
 from pydantic import AnyUrl
 
+from service_desk import telemetry
+
 MAX_PAGES = 16
 MAX_RESOURCES = 256
 MAX_CATALOG_BYTES = 256 * 1024
@@ -132,6 +134,7 @@ class SkillCatalog:
                 await session.initialize()
                 yield session
 
+    @telemetry.traced("toolbox.discover")
     async def list_skills(self, call_id: str) -> list[dict[str, str]]:
         """Return bounded name/description/URI metadata, never skill contents."""
         _validate_call_id(call_id)
@@ -149,6 +152,7 @@ class SkillCatalog:
                 "Toolbox skill discovery is unavailable. Please try again."
             ) from None
 
+    @telemetry.traced("toolbox.load")
     async def load_skill(self, name: str, call_id: str) -> Skill:
         """Return exact current text and its SHA-256 digest; never trust a caller URI."""
         _validate_call_id(call_id)

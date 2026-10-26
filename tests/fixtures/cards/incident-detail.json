@@ -13,12 +13,12 @@
           "width": "auto",
           "items": [
             {
-              "type": "TextBlock",
-              "text": "Customer",
-              "wrap": true,
-              "size": "ExtraLarge",
-              "isSubtle": false,
-              "weight": "Bolder"
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAVAAAABwAQMAAABy/boYAAAABlBMVEX////JGDKBcLdoAAACEUlEQVR42u2Xv27UQBCHv92z8EmcSEq6+A24miZ+D4q0lJQUSFkJijxGKl4D01FemQ6LinJBV+whZ4diz76zz3+WIhGKPM1e8WnmN+Pf2HswxxxzPNVIxZsYTsN71ASkRDzoyNIKNDgkik5gN1UfUaTxAnhgdCFGb9Rbrp26lq2SkivLc2+uZPPKHeh3wJmUqVtUSvxCpErFIZ4LKUTcpVg4amvNy1BDGWDJs+PKq5aAnGQ/OoDzcGRtke22lpADGYqjp61aqOmOwgwP61s4diYD+DE219dBpLv1Bpd/N40v7poSunZZEGStfLpfUQA5eQZqzdfxp1X06B56sPlpZ4/vLBOPSjSaNyZ4lLbehONXU7RUQ+jnY6fGCFge/c5GUZt2/SybwbZst2w2iL6I1epa708/ZsKqb6kue7P6sLH9vmmjYuLnenPoeD+LcgjdddOqdWNGPbZ/7Ul00bLHBVUHFYCL0p6SNt6vd9Oo7sx4LOteY5VMoe5hP0ZeT6MuLmtxupJ6aOB1/4c1S+pPMyQJ9jykyqXn1VVn/Uill7AMHswMsLKAuBMBHwRlK9ICoLiIGlZZ74gfWBiD9+Bc1/k9G1sE9VXwtg2tlL0CSrYYNj6kcMfVqbd4j/5kwy25mHuAP2xBmu0pWleH6Sve/3Mjmogv4kDDmcjEpVTl/yJAQPe/ezpcwe/5L8EcczzZ+Asn1aTKvUPbRwAAAABJRU5ErkJggg==",
+              "altText": "Customer",
+              "width": "168px",
+              "height": "56px",
+              "backgroundColor": "#FFFFFF"
             }
           ]
         },
@@ -32,7 +32,6 @@
               "text": "SERVICE DESK",
               "wrap": true,
               "size": "Small",
-              "isSubtle": false,
               "weight": "Bolder",
               "horizontalAlignment": "Right"
             },
@@ -54,7 +53,6 @@
       "text": "INC0012345",
       "wrap": true,
       "size": "Large",
-      "isSubtle": false,
       "weight": "Bolder",
       "spacing": "Medium",
       "separator": true
@@ -64,7 +62,6 @@
       "text": "Printer unavailable on Floor 2",
       "wrap": true,
       "size": "Medium",
-      "isSubtle": false,
       "weight": "Bolder"
     },
     {
@@ -99,8 +96,7 @@
           "type": "TextBlock",
           "text": "The service desk is investigating.",
           "wrap": true,
-          "size": "Default",
-          "isSubtle": false
+          "size": "Default"
         }
       ]
     },
@@ -115,8 +111,7 @@
       "type": "TextBlock",
       "text": "The shared printer appears offline. A test page did not print.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "ActionSet",
@@ -170,54 +165,6 @@
           "type": "Action.OpenUrl",
           "title": "View incident in ServiceNow",
           "url": "https://mock.service-now.com/sp?id=ticket&table=incident&sys_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        }
-      ]
-    },
-    {
-      "type": "TextBlock",
-      "text": "More to share? Type Feedback: followed by your comments.",
-      "wrap": true,
-      "size": "Small",
-      "isSubtle": true,
-      "spacing": "Medium"
-    },
-    {
-      "type": "ActionSet",
-      "id": "response-feedback",
-      "actions": [
-        {
-          "type": "Action.Execute",
-          "title": "\ud83d\udc4d Helpful",
-          "verb": "feedback_like",
-          "data": {
-            "verb": "feedback_like"
-          },
-          "associatedInputs": "none",
-          "fallback": {
-            "type": "Action.Submit",
-            "title": "\ud83d\udc4d Helpful",
-            "data": {
-              "verb": "feedback_like"
-            },
-            "associatedInputs": "none"
-          }
-        },
-        {
-          "type": "Action.Execute",
-          "title": "\ud83d\udc4e Not helpful",
-          "verb": "feedback_dislike",
-          "data": {
-            "verb": "feedback_dislike"
-          },
-          "associatedInputs": "none",
-          "fallback": {
-            "type": "Action.Submit",
-            "title": "\ud83d\udc4e Not helpful",
-            "data": {
-              "verb": "feedback_dislike"
-            },
-            "associatedInputs": "none"
-          }
         }
       ]
     }

@@ -11,10 +11,18 @@ from service_desk.state import Item, State, require_current_conversation
 
 
 class Actions:
-    def __init__(self, snow: SnowClient, state: State, ttl: int = 600) -> None:
+    def __init__(
+        self,
+        snow: SnowClient,
+        state: State,
+        ttl: int = 600,
+        *,
+        require_confirmation: bool = True,
+    ) -> None:
         self.snow = snow
         self.state = state
         self.ttl = ttl
+        self.require_confirmation = require_confirmation
 
     @staticmethod
     def key(principal: Principal, action_id: str) -> str:
@@ -33,11 +41,39 @@ class Actions:
                 raise DeskError("Incident creation is not enabled for this ServiceNow instance.")
             if not request.short_description.strip() or not request.description.strip():
                 raise DeskError("Please provide an issue title and description before review.")
+            description = request.description.strip()
+            for label, value in (
+                ("Reported location", request.reported_location),
+                ("Device / printer", request.device),
+                ("Business impact", request.business_impact),
+                ("Already tried", request.attempted_steps),
+            ):
+                if value.strip():
+                    description += f"\n\n{label}: {value.strip()}"
+            if len(description) > 4000:
+                raise DeskError(
+                    "The description and additional details exceed 4,000 characters. "
+                    "Please shorten them before submitting."
+                )
             payload = {
                 "caller_id": principal.caller_id,
                 "short_description": request.short_description.strip(),
-                "description": request.description.strip(),
+                "description": description,
+                "contact_type": "virtual_agent",
             }
+            if request.subcategory and not request.category:
+                raise DeskError("Choose a category for this subcategory.")
+            if request.category:
+                key = request.category + (":" + request.subcategory if request.subcategory else "")
+                if key not in await self.snow.incident_classifications():
+                    raise DeskError("Choose a current category and subcategory from the form.")
+                payload["category"] = request.category
+                if request.subcategory:
+                    payload["subcategory"] = request.subcategory
+            if bool(request.impact) != bool(request.urgency):
+                raise DeskError("Choose both impact and urgency.")
+            if request.impact:
+                payload.update(impact=request.impact, urgency=request.urgency)
         else:
             if not request.incident_number:
                 raise DeskError("Choose an incident before preparing a change.")
@@ -49,7 +85,16 @@ class Actions:
                     raise DeskError(
                         "A nonempty customer-visible comment is required and must be enabled."
                     )
-                payload = {"comments": request.comment.strip()}
+                author = (
+                    f"{principal.display_name} (Teams user: {principal.object_id})"
+                    if principal.display_name
+                    else f"Teams user: {principal.object_id}"
+                )
+                payload = {
+                    "comments": (
+                        f"Submitted by {author} via Service Desk.\n\n{request.comment.strip()}"
+                    )
+                }
             elif request.operation == "resolve":
                 if (
                     target.state not in policy.resolve_from
@@ -70,11 +115,27 @@ class Actions:
                 payload = {"state": policy.reopened_state}
         return payload, target
 
-    async def prepare(self, principal: Principal, request: DraftRequest) -> Draft:
+    async def prepare(
+        self, principal: Principal, request: DraftRequest, action_id: str = ""
+    ) -> Draft:
         await require_current_conversation(self.state, principal)
+        if action_id:
+            item = await self.state.get(self.key(principal, action_id))
+            if item:
+                existing, _ = await self.load(principal, action_id)
+                if existing.status not in ("pending", "succeeded"):
+                    raise DeskError(
+                        "This submission has already been handled. Check its outcome "
+                        "before opening another form."
+                    )
+                if existing.request != request:
+                    raise DeskError(
+                        "This form was already submitted with different data. Open a new form."
+                    )
+                return existing
         payload, target = await self._proposal(principal, request)
         draft = Draft(
-            id=uuid.uuid4().hex,
+            id=action_id or uuid.uuid4().hex,
             scope=principal.scope,
             caller_id=principal.caller_id,
             request=request,
@@ -85,6 +146,12 @@ class Actions:
         )
         await self.state.create(self.key(principal, draft.id), draft.model_dump(mode="json"))
         return draft
+
+    async def submit(
+        self, principal: Principal, request: DraftRequest, action_id: str = ""
+    ) -> Draft:
+        draft = await self.prepare(principal, request, action_id)
+        return draft if self.require_confirmation else await self.confirm(principal, draft.id)
 
     async def load(self, principal: Principal, action_id: str) -> tuple[Draft, Item]:
         item = await self.state.get(self.key(principal, action_id))

@@ -22,6 +22,7 @@ class Principal(Model):
     object_id: str
     caller_id: SysId
     conversation_id: str
+    display_name: str = Field(default="", max_length=80)
     conversation_generation: str = Field(default="", pattern=r"^(?:[a-f0-9]{32})?$")
 
     @property
@@ -70,6 +71,14 @@ class DraftRequest(Model):
     incident_number: IncidentNumber | None = None
     short_description: str = Field(default="", max_length=160)
     description: str = Field(default="", max_length=4000)
+    category: str = Field(default="", max_length=40)
+    subcategory: str = Field(default="", max_length=40)
+    impact: Literal["", "1", "2", "3"] = ""
+    urgency: Literal["", "1", "2", "3"] = ""
+    reported_location: str = Field(default="", max_length=160)
+    device: str = Field(default="", max_length=160)
+    business_impact: str = Field(default="", max_length=500)
+    attempted_steps: str = Field(default="", max_length=1000)
     comment: str = Field(default="", max_length=4000)
     resolution_code: str = Field(default="", max_length=120)
     resolution_notes: str = Field(default="", max_length=4000)

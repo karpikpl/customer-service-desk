@@ -86,7 +86,7 @@ def test_command_parsing_is_explicit_and_case_insensitive(name):
         "/agent secrets",
         "/incidents 0",
         "/incidents -1",
-        "/incidents all-users",
+        "/incidents printer^ORcaller_idISNOTEMPTY",
         "/incidents 1002",
         "/new/extra",
         "/incident " + "x" * 161,
@@ -120,7 +120,8 @@ async def test_incident_command_opens_reviewed_intake_without_writing(commands_h
     title = next(item for item in value["body"] if item.get("id") == "title")
     assert title["value"] == "Printer is offline"
     assert value["actions"][0]["verb"] == "prepare_create"
-    assert requests == []
+    assert all(request.method == "GET" for request in requests)
+    assert requests[0].url.path.endswith("/sys_choice")
 
 
 async def test_disabled_incident_creation_is_explicit(commands_host, snow, requests):
@@ -161,14 +162,16 @@ async def test_kb_form_submit_never_uses_model(commands_host, snow, monkeypatch)
     search = AsyncMock(return_value=[])
     monkeypatch.setattr(snow, "search_knowledge", search)
     value = card_from(await commands_host.send(value={"verb": "kb_search", "kb_query": "printer"}))
-    assert "No approved articles matched" in str(value)
+    assert "No published articles matched" in str(value)
     search.assert_awaited_once_with("printer")
 
 
-async def test_kb_command_does_not_expand_knowledge_access(commands_host, requests):
+async def test_kb_command_searches_all_published_knowledge(commands_host, requests):
     value = card_from(await commands_host.send("/kb printer"))
-    assert "Approved ServiceNow knowledge is unavailable" in str(value)
-    assert requests == []
+    assert "Knowledge search results" in str(value)
+    assert requests[0].url.params["sysparm_query"] == (
+        "workflow_state=published^active=true^short_descriptionLIKEprinter"
+    )
 
 
 async def test_agent_command_lists_allowlisted_metadata_without_secrets(commands_host):

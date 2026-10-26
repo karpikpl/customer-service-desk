@@ -13,12 +13,12 @@
           "width": "auto",
           "items": [
             {
-              "type": "TextBlock",
-              "text": "Customer",
-              "wrap": true,
-              "size": "ExtraLarge",
-              "isSubtle": false,
-              "weight": "Bolder"
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAVAAAABwAQMAAABy/boYAAAABlBMVEX////JGDKBcLdoAAACEUlEQVR42u2Xv27UQBCHv92z8EmcSEq6+A24miZ+D4q0lJQUSFkJijxGKl4D01FemQ6LinJBV+whZ4diz76zz3+WIhGKPM1e8WnmN+Pf2HswxxxzPNVIxZsYTsN71ASkRDzoyNIKNDgkik5gN1UfUaTxAnhgdCFGb9Rbrp26lq2SkivLc2+uZPPKHeh3wJmUqVtUSvxCpErFIZ4LKUTcpVg4amvNy1BDGWDJs+PKq5aAnGQ/OoDzcGRtke22lpADGYqjp61aqOmOwgwP61s4diYD+DE219dBpLv1Bpd/N40v7poSunZZEGStfLpfUQA5eQZqzdfxp1X06B56sPlpZ4/vLBOPSjSaNyZ4lLbehONXU7RUQ+jnY6fGCFge/c5GUZt2/SybwbZst2w2iL6I1epa708/ZsKqb6kue7P6sLH9vmmjYuLnenPoeD+LcgjdddOqdWNGPbZ/7Ul00bLHBVUHFYCL0p6SNt6vd9Oo7sx4LOteY5VMoe5hP0ZeT6MuLmtxupJ6aOB1/4c1S+pPMyQJ9jykyqXn1VVn/Uill7AMHswMsLKAuBMBHwRlK9ICoLiIGlZZ74gfWBiD9+Bc1/k9G1sE9VXwtg2tlL0CSrYYNj6kcMfVqbd4j/5kwy25mHuAP2xBmu0pWleH6Sve/3Mjmogv4kDDmcjEpVTl/yJAQPe/ezpcwe/5L8EcczzZ+Asn1aTKvUPbRwAAAABJRU5ErkJggg==",
+              "altText": "Customer",
+              "width": "168px",
+              "height": "56px",
+              "backgroundColor": "#FFFFFF"
             }
           ]
         },
@@ -32,7 +32,6 @@
               "text": "SERVICE DESK",
               "wrap": true,
               "size": "Small",
-              "isSubtle": false,
               "weight": "Bolder",
               "horizontalAlignment": "Right"
             },
@@ -54,7 +53,6 @@
       "text": "Service Desk commands",
       "wrap": true,
       "size": "Large",
-      "isSubtle": false,
       "weight": "Bolder",
       "spacing": "Medium",
       "separator": true
@@ -63,112 +61,55 @@
       "type": "TextBlock",
       "text": "These commands run directly in the application, without a model call.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/feedback \u2014 Provide feedback \\(optionally add text after the command\\).",
+      "text": "/feedback — Provide feedback \\(optionally add text after the command\\).",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/incident \u2014 Open a new incident form; creation must be enabled and confirmed.",
+      "text": "/incident — Open the issue form, or view an owned incident: /incident INC0012345.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/kb \u2014 Search approved knowledge: /kb printer, or open the search form.",
+      "text": "/kb — Search published knowledge: /kb printer, or open the search form.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/agent \u2014 Show agent, model, version, and skill details.",
+      "text": "/agent — Show agent, model, version, and skill details.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/new \u2014 Start fresh; forget model context and invalidate old cases/reviews.",
+      "text": "/new — Start fresh; forget model context and invalidate old cases/reviews.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/incidents \u2014 List your incidents, including closed ones; optional page number.",
+      "text": "/incidents — List your incidents, or search: /incidents printer; optional page number.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/whoami \u2014 Show your Teams identity and temporary ServiceNow mapping.",
+      "text": "/whoami — Show your Teams identity and temporary ServiceNow mapping.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
+      "size": "Default"
     },
     {
       "type": "TextBlock",
-      "text": "/help \u2014 Show these commands.",
+      "text": "/help — Show these commands.",
       "wrap": true,
-      "size": "Default",
-      "isSubtle": false
-    },
-    {
-      "type": "TextBlock",
-      "text": "More to share? Type Feedback: followed by your comments.",
-      "wrap": true,
-      "size": "Small",
-      "isSubtle": true,
-      "spacing": "Medium"
-    },
-    {
-      "type": "ActionSet",
-      "id": "response-feedback",
-      "actions": [
-        {
-          "type": "Action.Execute",
-          "title": "\ud83d\udc4d Helpful",
-          "verb": "feedback_like",
-          "data": {
-            "verb": "feedback_like"
-          },
-          "associatedInputs": "none",
-          "fallback": {
-            "type": "Action.Submit",
-            "title": "\ud83d\udc4d Helpful",
-            "data": {
-              "verb": "feedback_like"
-            },
-            "associatedInputs": "none"
-          }
-        },
-        {
-          "type": "Action.Execute",
-          "title": "\ud83d\udc4e Not helpful",
-          "verb": "feedback_dislike",
-          "data": {
-            "verb": "feedback_dislike"
-          },
-          "associatedInputs": "none",
-          "fallback": {
-            "type": "Action.Submit",
-            "title": "\ud83d\udc4e Not helpful",
-            "data": {
-              "verb": "feedback_dislike"
-            },
-            "associatedInputs": "none"
-          }
-        }
-      ]
+      "size": "Default"
     }
   ],
   "actions": []

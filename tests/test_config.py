@@ -46,13 +46,45 @@ def test_hosted_secrets_cannot_use_local_files(monkeypatch):
         Settings(**{**settings_values(), "local_config_file": "local-secrets/config.json"})
 
 
-def test_write_and_knowledge_policy_defaults_are_closed():
+def test_write_policy_defaults_are_closed():
     policy = SnowPolicy()
     assert not policy.allow_create
     assert not policy.allow_comments
     assert not policy.resolve_from
     assert not policy.reopen_from
-    assert not policy.knowledge_audience_verified
+
+
+def test_legacy_knowledge_allowlists_are_explicitly_retired(caplog):
+    policy = SnowPolicy.model_validate(
+        {
+            "employee_knowledge_bases": ["1" * 32],
+            "employee_knowledge_articles": ["2" * 32],
+            "knowledge_audience_verified": False,
+        }
+    )
+    assert "knowledge" not in str(policy.model_dump())
+    assert "Legacy knowledge allowlists are ignored" in caplog.text
+    with pytest.raises(ValidationError):
+        SnowPolicy.model_validate({"allow_commments": True})
+
+
+@pytest.mark.parametrize(
+    "value,expected", [("true", True), ("false", False), ("1", True), ("0", False)]
+)
+def test_confirmation_environment_mode(monkeypatch, value, expected):
+    monkeypatch.setenv("DESK_REQUIRE_WRITE_CONFIRMATION", value)
+    assert Settings(**settings_values()).require_write_confirmation is expected
+
+
+def test_confirmation_mode_defaults_to_review(monkeypatch):
+    monkeypatch.delenv("DESK_REQUIRE_WRITE_CONFIRMATION", raising=False)
+    assert Settings(_env_file=None, **settings_values()).require_write_confirmation
+
+
+def test_confirmation_mode_rejects_invalid_values(monkeypatch):
+    monkeypatch.setenv("DESK_REQUIRE_WRITE_CONFIRMATION", "sometimes")
+    with pytest.raises(ValidationError):
+        Settings(**settings_values())
 
 
 @pytest.mark.parametrize(

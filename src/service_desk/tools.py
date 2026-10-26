@@ -1,7 +1,8 @@
-"""Only these application tools are visible to the model; none executes a write."""
+"""Model tools use the same caller checks and configured write mode as card actions."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from collections.abc import Awaitable, Callable
@@ -9,9 +10,10 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from copilot import Tool, ToolInvocation, ToolResult
+from opentelemetry import trace
 from pydantic import Field, ValidationError, model_validator
 
-from service_desk import cards
+from service_desk import cards, telemetry
 from service_desk.actions import Actions
 from service_desk.feedback import FeedbackParams, FeedbackRating
 from service_desk.models import (
@@ -92,6 +94,7 @@ class ToolContext:
     feedback_recorded: bool = False
     knowledge_searched: bool = False
     knowledge_sources: list[KnowledgeSource] = field(default_factory=list)
+    request_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     @property
     def portal_url(self) -> str:
@@ -112,24 +115,49 @@ class ToolContext:
         else:
             await self.state.create(self.case_key, progress.model_dump())
 
+    async def incident_form(self, request: DraftRequest | None = None) -> cards.Card:
+        if not self.snow.policy.allow_create:
+            raise DeskError("Incident creation is not enabled for this ServiceNow instance.")
+        classifications = await self.snow.incident_classifications()
+        return cards.intake(
+            request=request,
+            classifications=classifications,
+            require_confirmation=self.actions.require_confirmation,
+            scope_token=self.principal.scope,
+        )
+
 
 def _tool(
     name: str,
     description: str,
     params: type[Model],
     handler: Callable[[Any], Awaitable[Any]],
+    *,
+    terminal: bool = False,
 ) -> Tool:
+    callback_scope = telemetry.callback_scope()
+
     async def invoke(invocation: ToolInvocation) -> ToolResult:
+        with callback_scope(), telemetry.operation("tool", **{"desk.tool": name}):
+            telemetry.count("tool_calls")
+            return await run(invocation)
+
+    async def run(invocation: ToolInvocation) -> ToolResult:
         try:
             parsed = params.model_validate(invocation.arguments or {})
             result = await handler(parsed)
             return ToolResult(text_result_for_llm=json.dumps(result), result_type="success")
-        except ValidationError:
+        except ValidationError as exc:
+            telemetry.count("tool_validation_failures")
+            telemetry.failed(trace.get_current_span(), exc)
+            trace.get_current_span().set_attribute("desk.result", "invalid_input")
             return ToolResult(
                 text_result_for_llm="Invalid tool input. Use only the advertised fields.",
                 result_type="failure",
             )
         except (DeskError, ToolboxError) as exc:
+            telemetry.count("tool_failures")
+            telemetry.failed(trace.get_current_span(), exc)
             return ToolResult(text_result_for_llm=str(exc), result_type="failure")
 
     return Tool(
@@ -139,6 +167,7 @@ def _tool(
         parameters=params.model_json_schema(),
         skip_permission=True,
         defer="never",
+        is_terminal=terminal,
     )
 
 
@@ -150,15 +179,46 @@ def build_tools(context: ToolContext) -> list[Tool]:
 
     async def get_incident(params: GetParams) -> Any:
         item = await context.snow.get_incident(context.principal, params.number)
-        context.outbox.append(cards.detail(item, context.snow.policy, context.portal_url))
+        context.outbox.append(
+            cards.detail(
+                item,
+                context.snow.policy,
+                context.portal_url,
+                require_confirmation=context.actions.require_confirmation,
+                scope_token=context.principal.scope,
+            )
+        )
         return item.model_dump(exclude={"sys_id", "caller_id", "version"})
 
+    async def search_incidents(params: IncidentSearchParams) -> Any:
+        items = await context.snow.list_incidents(
+            context.principal, params.page, query=params.query
+        )
+        context.outbox.append(cards.incidents(items, params.page, query=params.query))
+        return [item.model_dump(exclude={"sys_id", "caller_id", "version"}) for item in items]
+
     async def prepare(params: DraftRequest) -> Any:
-        draft = await context.actions.prepare(context.principal, params)
-        context.outbox.append(cards.review(draft))
+        if params.operation == "create":
+            context.outbox.append(await context.incident_form(params))
+            return {
+                "status": "intake_required",
+                "message": "The prefilled incident form is ready. Wait for its submission.",
+            }
+        source = "\0".join((context.request_id, params.operation, params.incident_number or ""))
+        action_id = hashlib.sha256(source.encode()).hexdigest()[:32]
+        draft = await context.actions.submit(context.principal, params, action_id)
+        context.outbox.append(
+            cards.receipt(draft, context.portal_url)
+            if draft.status == "succeeded"
+            else cards.review(draft)
+        )
         return {
-            "status": "review_required",
-            "message": "A review card is ready. No write was made.",
+            "status": "succeeded" if draft.status == "succeeded" else "review_required",
+            "message": (
+                "ServiceNow confirmed this change; its receipt is displayed."
+                if draft.status == "succeeded"
+                else "A review card is ready. No write was made."
+            ),
         }
 
     async def search(params: SearchParams) -> Any:
@@ -237,7 +297,7 @@ def build_tools(context: ToolContext) -> list[Tool]:
             raise DeskError("Wait for the user's choice before offering the next step.")
         if params.interaction == "outcome" and progress.knowledge_status == "unchecked":
             raise DeskError(
-                "Search approved knowledge for this issue before offering troubleshooting "
+                "Search ServiceNow knowledge for this issue before offering troubleshooting "
                 "instructions. If unavailable, explicitly label the step as general guidance."
             )
         updated = progress.model_copy(
@@ -258,9 +318,9 @@ def build_tools(context: ToolContext) -> list[Tool]:
             source = (
                 "; ".join(f"{item.number}: {item.title}" for item in progress.knowledge_sources)
                 if progress.knowledge_status == "available"
-                else "General guidance (no matching approved article)"
+                else "General guidance (no matching published article)"
                 if progress.knowledge_status == "not_found"
-                else "General guidance (approved knowledge unavailable)"
+                else "General guidance (ServiceNow knowledge unavailable)"
             )
             context.outbox.append(
                 cards.troubleshooting(
@@ -306,6 +366,13 @@ def build_tools(context: ToolContext) -> list[Tool]:
 
     return [
         _tool(
+            "search_my_incidents",
+            "Find my incidents by a short issue-title fragment without paging through unrelated "
+            "tickets. Display matching caller-owned incidents, including closed ones.",
+            IncidentSearchParams,
+            search_incidents,
+        ),
+        _tool(
             "record_user_feedback",
             "Record feedback about the assistant, its responses/cards, or support experience. "
             "Not for printer symptoms or troubleshooting outcomes. Classify the rating only; "
@@ -328,15 +395,21 @@ def build_tools(context: ToolContext) -> list[Tool]:
         ),
         _tool(
             "prepare_incident_change",
-            "Prepare a review card. Does NOT write to ServiceNow.",
+            "For create, display one prefilled incident form and wait for the user's submission. "
+            "For an explicitly requested comment, resolution, or reopening, use the configured "
+            "write mode: review first when required, or submit directly when disabled. "
+            "Never call this for hypothetical changes or without the user's request.",
             DraftRequest,
             prepare,
+            terminal=True,
         ),
         _tool(
             "search_approved_knowledge",
-            "Search approved employee knowledge BEFORE answering support questions or giving "
-            "troubleshooting instructions. Display actual source links; cite only returned "
-            "articles. An unavailable search does not authorize inventing a KB.",
+            "Search published, active ServiceNow knowledge across ALL bases BEFORE answering "
+            "support questions or giving troubleshooting instructions. No application KB "
+            "allowlist is applied; the integration account's API permissions still apply. "
+            "Display actual source links; cite only returned articles. Articles may be old "
+            "demo content, not evidence of current outages or tenant-specific settings.",
             SearchParams,
             search,
         ),
@@ -357,6 +430,7 @@ def build_tools(context: ToolContext) -> list[Tool]:
             "Selection does not authorize or execute a ticket change.",
             OptionsParams,
             show_options,
+            terminal=True,
         ),
         _tool(
             "show_case_step",
@@ -367,5 +441,14 @@ def build_tools(context: ToolContext) -> list[Tool]:
             "and an approved-knowledge search attempt first.",
             StepParams,
             show_step,
+            terminal=True,
         ),
     ]
+
+
+class IncidentSearchParams(ListParams):
+    query: str = Field(
+        min_length=2,
+        max_length=120,
+        description="A short title fragment, such as printer, VPN, or email.",
+    )

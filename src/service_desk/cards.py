@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import re
+import uuid
+from base64 import b64encode
+from importlib.resources import files
 from typing import Any
 from urllib.parse import urlencode
 
 from service_desk.config import SnowPolicy
-from service_desk.models import Article, CaseOption, Draft, Incident, KnowledgeSource
+from service_desk.models import Article, CaseOption, Draft, DraftRequest, Incident, KnowledgeSource
 
 Card = dict[str, Any]
+CUSTOMER_LOGO = "data:image/png;base64," + b64encode(
+    files("service_desk").joinpath("assets/customer-logo.png").read_bytes()
+).decode("ascii")
 
 
 def escaped(value: str, limit: int = 4000) -> str:
@@ -17,13 +23,13 @@ def escaped(value: str, limit: int = 4000) -> str:
     return re.sub(r"([\\`*_\[\]()#!])", r"\\\1", text)
 
 
-def text(value: str, *, subtle: bool = False, size: str = "Default") -> Card:
+def text(value: str, *, subtle: bool = False, size: str = "Default", limit: int = 4000) -> Card:
     return {
         "type": "TextBlock",
-        "text": escaped(value),
+        "text": escaped(value, limit),
         "wrap": True,
         "size": size,
-        "isSubtle": subtle,
+        **({"isSubtle": True} if subtle else {}),
     }
 
 
@@ -65,8 +71,12 @@ def card(title: str, body: list[Card], actions: list[Card] | None = None) -> Car
                         "width": "auto",
                         "items": [
                             {
-                                **text("Customer", size="ExtraLarge"),
-                                "weight": "Bolder",
+                                "type": "Image",
+                                "url": CUSTOMER_LOGO,
+                                "altText": "Customer",
+                                "width": "168px",
+                                "height": "56px",
+                                "backgroundColor": "#FFFFFF",
                             }
                         ],
                     },
@@ -136,9 +146,12 @@ def feedback_form(response_id: str = "") -> Card:
 
 def knowledge_search() -> Card:
     return card(
-        "Search approved knowledge",
+        "Search ServiceNow knowledge",
         [
-            text("Search published articles approved for employee access.", subtle=True),
+            text(
+                "Search published, active ServiceNow articles across all knowledge bases.",
+                subtle=True,
+            ),
             {**input_text("kb_query", "Search words"), "maxLength": 120},
         ],
         [action("Search", "kb_search"), action("Cancel", "home")],
@@ -148,7 +161,7 @@ def knowledge_search() -> Card:
 def knowledge_results(query: str, articles: list[Article]) -> Card:
     body = [text(f"Search: {query}", subtle=True)]
     if not articles:
-        body.append(text("No approved articles matched. Try different search words."))
+        body.append(text("No published articles matched. Try different search words."))
     for article in articles:
         body.extend(
             [
@@ -203,33 +216,6 @@ def answer(message: str) -> Card:
     return result
 
 
-def with_feedback(value: Card) -> Card:
-    if any(item.get("id") == "response-feedback" for item in value["body"]):
-        return value
-    return {
-        **value,
-        "body": [
-            *value["body"],
-            {
-                **text(
-                    "More to share? Type Feedback: followed by your comments.",
-                    subtle=True,
-                    size="Small",
-                ),
-                "spacing": "Medium",
-            },
-            {
-                "type": "ActionSet",
-                "id": "response-feedback",
-                "actions": [
-                    action("👍 Helpful", "feedback_like"),
-                    action("👎 Not helpful", "feedback_dislike"),
-                ],
-            },
-        ],
-    }
-
-
 def with_incident_link(value: Card, url: str) -> Card:
     return {
         **value,
@@ -259,7 +245,7 @@ def incident_url(portal_url: str, item: Incident) -> str:
     )
 
 
-def welcome(display_name: str = "") -> Card:
+def welcome(display_name: str = "", *, require_confirmation: bool = True) -> Card:
     name = " ".join(re.sub(r"<[^>]*>", "", display_name).split())[:80]
     title = f"Hello, {name}!" if name else "Hello!"
     result = card(
@@ -267,11 +253,16 @@ def welcome(display_name: str = "") -> Card:
         [
             text("I'm Customer Service Desk. How can I help you today?"),
             text("View your incidents and their latest updates."),
-            text("Describe a new issue or prepare a ticket update for review."),
+            text("Report an issue in one form or update an existing ticket."),
             text("Troubleshoot printer problems step by step."),
             text(
-                "ServiceNow changes must be enabled by your service desk and always "
-                "require your review and confirmation.",
+                "ServiceNow changes must be enabled by your service desk. "
+                + (
+                    "You review and confirm each change before it is sent."
+                    if require_confirmation
+                    else "Demo mode: submitting a form or requesting an update sends it "
+                    "without a separate confirmation."
+                ),
                 subtle=True,
             ),
             text(
@@ -289,12 +280,16 @@ def welcome(display_name: str = "") -> Card:
     result["fallbackText"] = (
         f"{title} I'm Customer Service Desk. How can I help you today? "
         "I can help you view incidents, describe an issue, or troubleshoot printing. "
-        "ServiceNow changes require review and confirmation when enabled."
+        + (
+            "ServiceNow changes require review and confirmation when enabled."
+            if require_confirmation
+            else "Demo mode: submissions and requested updates have no separate confirmation."
+        )
     )
     return result
 
 
-def incidents(items: list[Incident], page: int) -> Card:
+def incidents(items: list[Incident], page: int, *, query: str = "") -> Card:
     rows: list[Card] = [
         {
             "type": "TableRow",
@@ -335,7 +330,11 @@ def incidents(items: list[Incident], page: int) -> Card:
     widths = [4.4, 1.6, 1.8, 2.2]
     body = (
         [
-            text(f"Page {page + 1} | Open an incident for details and next steps.", subtle=True),
+            text(
+                (f"Search: {query} | " if query else "")
+                + f"Page {page + 1} | Open an incident for details and next steps.",
+                subtle=True,
+            ),
             {
                 "type": "Table",
                 "columns": [{"width": width} for width in widths],
@@ -364,23 +363,44 @@ def incidents(items: list[Incident], page: int) -> Card:
     )
     actions = [action("Report an issue", "intake")]
     if page:
-        actions.append(action("Previous", "list", page=page - 1))
+        actions.append(
+            action(
+                "Previous", "list", page=page - 1, **({"incident_query": query} if query else {})
+            )
+        )
     if len(items) == 5 and page < 1000:
-        actions.append(action("Next", "list", page=page + 1))
+        actions.append(
+            action("Next", "list", page=page + 1, **({"incident_query": query} if query else {}))
+        )
     result = card("Your incidents", body, actions)
     if items:
         result["msteams"] = {"width": "Full"}
     return result
 
 
-def detail(item: Incident, policy: SnowPolicy, portal_url: str) -> Card:
+def detail(
+    item: Incident,
+    policy: SnowPolicy,
+    portal_url: str,
+    *,
+    require_confirmation: bool = True,
+    scope_token: str = "",
+) -> Card:
     actions = []
     if policy.allow_comments:
         actions.append(action("Add comment", "comment_form", incident=item.number))
     if item.state in policy.resolve_from:
         actions.append(action("Resolve", "resolve_form", incident=item.number))
     elif item.state in policy.reopen_from:
-        actions.append(action("Review reopening", "prepare_reopen", incident=item.number))
+        actions.append(
+            action(
+                "Review reopening" if require_confirmation else "Reopen incident",
+                "prepare_reopen",
+                incident=item.number,
+                action_id=uuid.uuid4().hex,
+                scope_token=scope_token,
+            )
+        )
     actions.append(action("Refresh", "view", incident=item.number))
     result = card(
         item.number,
@@ -430,43 +450,208 @@ def detail(item: Incident, policy: SnowPolicy, portal_url: str) -> Card:
     return with_incident_link(result, incident_url(portal_url, item))
 
 
-def input_text(identifier: str, label: str, *, multiline: bool = False, value: str = "") -> Card:
+def input_text(
+    identifier: str,
+    label: str,
+    *,
+    multiline: bool = False,
+    value: str = "",
+    required: bool = True,
+    max_length: int | None = None,
+) -> Card:
     return {
         "type": "Input.Text",
         "id": identifier,
         "label": label,
         "isMultiline": multiline,
-        "isRequired": True,
+        "isRequired": required,
         "errorMessage": "Please complete this field.",
-        "maxLength": 4000 if multiline else 160,
+        "maxLength": max_length or (4000 if multiline else 160),
         "value": value,
     }
 
 
-def intake(title: str = "", description: str = "") -> Card:
-    return card(
-        "Report an issue",
-        [
-            text("Describe what happened and how it affects your work.", subtle=True),
-            input_text("title", "Issue title", value=title),
-            input_text("description", "Description and impact", multiline=True, value=description),
-        ],
-        [action("Review incident", "prepare_create"), action("Cancel", "home")],
+def write_notice(require_confirmation: bool) -> Card:
+    return text(
+        "Next, review exactly what will be sent. Nothing changes until you confirm."
+        if require_confirmation
+        else "Demo mode: submitting sends this change immediately. There is no separate review.",
+        subtle=True,
+        size="Small",
     )
 
 
-def comment_form(number: str, value: str = "") -> Card:
+def intake(
+    title: str = "",
+    description: str = "",
+    *,
+    request: DraftRequest | None = None,
+    classifications: dict[str, str] | None = None,
+    action_id: str = "",
+    require_confirmation: bool = True,
+    scope_token: str = "",
+) -> Card:
+    request = request or DraftRequest(
+        operation="create", short_description=title, description=description
+    )
+    classification = request.category + (":" + request.subcategory if request.subcategory else "")
+
+    def choice(identifier: str, label: str, values: dict[str, str], value: str) -> Card:
+        return {
+            "type": "Input.ChoiceSet",
+            "id": identifier,
+            "label": label,
+            "isRequired": True,
+            "errorMessage": f"Choose {label.lower()}.",
+            "value": value,
+            "choices": [{"title": title, "value": key} for key, title in values.items()],
+        }
+
+    return card(
+        "Report an issue",
+        [
+            text(
+                "Capture the issue in one form. Known details are filled in for you.", subtle=True
+            ),
+            input_text("title", "Issue title", value=request.short_description),
+            input_text("description", "What happened?", multiline=True, value=request.description),
+            choice(
+                "classification", "Category / subcategory", classifications or {}, classification
+            ),
+            {
+                "type": "ColumnSet",
+                "columns": [
+                    {
+                        "type": "Column",
+                        "width": "stretch",
+                        "items": [
+                            choice(
+                                "impact",
+                                "Impact",
+                                {
+                                    "3": "Low - one person",
+                                    "2": "Medium - team",
+                                    "1": "High - widespread",
+                                },
+                                request.impact,
+                            )
+                        ],
+                    },
+                    {
+                        "type": "Column",
+                        "width": "stretch",
+                        "items": [
+                            choice(
+                                "urgency",
+                                "Urgency",
+                                {
+                                    "3": "Low - can continue working",
+                                    "2": "Medium - workaround available",
+                                    "1": "High - blocked, no workaround",
+                                },
+                                request.urgency,
+                            )
+                        ],
+                    },
+                ],
+            },
+            {
+                "type": "ActionSet",
+                "actions": [
+                    {
+                        "type": "Action.ToggleVisibility",
+                        "title": "Additional context (optional)",
+                        "targetElements": ["incident-context"],
+                    }
+                ],
+            },
+            {
+                "type": "Container",
+                "id": "incident-context",
+                "isVisible": any(
+                    (
+                        request.reported_location,
+                        request.device,
+                        request.business_impact,
+                        request.attempted_steps,
+                    )
+                ),
+                "items": [
+                    input_text(
+                        "reported_location",
+                        "Reported location",
+                        value=request.reported_location,
+                        required=False,
+                    ),
+                    input_text("device", "Device / printer", value=request.device, required=False),
+                    input_text(
+                        "business_impact",
+                        "How is work affected?",
+                        multiline=True,
+                        value=request.business_impact,
+                        required=False,
+                        max_length=500,
+                    ),
+                    input_text(
+                        "attempted_steps",
+                        "What have you already tried?",
+                        multiline=True,
+                        value=request.attempted_steps,
+                        required=False,
+                        max_length=1000,
+                    ),
+                ],
+            },
+            write_notice(require_confirmation),
+        ],
+        [
+            action(
+                "Review incident" if require_confirmation else "Create incident",
+                "prepare_create",
+                action_id=action_id or uuid.uuid4().hex,
+                scope_token=scope_token,
+            ),
+            action("Cancel", "home"),
+        ],
+    )
+
+
+def comment_form(
+    number: str,
+    value: str = "",
+    *,
+    action_id: str = "",
+    require_confirmation: bool = True,
+    scope_token: str = "",
+) -> Card:
     return card(
         f"Comment on {number}",
-        [input_text("comment", "Customer-visible comment", multiline=True, value=value)],
         [
-            action("Review comment", "prepare_comment", incident=number),
+            input_text("comment", "Customer-visible comment", multiline=True, value=value),
+            write_notice(require_confirmation),
+        ],
+        [
+            action(
+                "Review comment" if require_confirmation else "Add comment",
+                "prepare_comment",
+                incident=number,
+                action_id=action_id or uuid.uuid4().hex,
+                scope_token=scope_token,
+            ),
             action("Cancel", "view", incident=number),
         ],
     )
 
 
-def resolve_form(number: str, policy: SnowPolicy) -> Card:
+def resolve_form(
+    number: str,
+    policy: SnowPolicy,
+    *,
+    request: DraftRequest | None = None,
+    action_id: str = "",
+    require_confirmation: bool = True,
+    scope_token: str = "",
+) -> Card:
     return card(
         f"Resolve {number}",
         [
@@ -477,11 +662,24 @@ def resolve_form(number: str, policy: SnowPolicy) -> Card:
                 "isRequired": True,
                 "errorMessage": "Choose an approved resolution code.",
                 "choices": [{"title": code, "value": code} for code in policy.resolution_codes],
+                "value": request.resolution_code if request else "",
             },
-            input_text("resolution_notes", "What resolved the issue?", multiline=True),
+            input_text(
+                "resolution_notes",
+                "What resolved the issue?",
+                multiline=True,
+                value=request.resolution_notes if request else "",
+            ),
+            write_notice(require_confirmation),
         ],
         [
-            action("Review resolution", "prepare_resolve", incident=number),
+            action(
+                "Review resolution" if require_confirmation else "Resolve incident",
+                "prepare_resolve",
+                incident=number,
+                action_id=action_id or uuid.uuid4().hex,
+                scope_token=scope_token,
+            ),
             action("Cancel", "view", incident=number),
         ],
     )
@@ -500,7 +698,10 @@ def review(draft: Draft) -> Card:
         body.extend(
             [
                 text(key.replace("_", " ").upper(), subtle=True, size="Small"),
-                text("Your mapped ServiceNow account" if key == "caller_id" else value),
+                text(
+                    "Your mapped ServiceNow account" if key == "caller_id" else value,
+                    limit=4500 if key == "comments" else 4000,
+                ),
             ]
         )
     body.append(text("This review expires after a short period. Confirm only once.", subtle=True))

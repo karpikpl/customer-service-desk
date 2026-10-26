@@ -62,6 +62,11 @@ async def test_agent_allows_only_explicit_custom_tools_and_rebinds_each_turn(
     assert output[-1] == ("final", "Your incidents")
     options = client.create_session.call_args.kwargs
     names = [tool.name for tool in options["tools"]]
+    assert {tool.name for tool in options["tools"] if tool.is_terminal} == {
+        "show_case_options",
+        "show_case_step",
+        "prepare_incident_change",
+    }
     assert options["available_tools"].to_list() == ["custom:" + name for name in names]
     assert options["excluded_tools"].to_list() == ["builtin:*", "mcp:*"]
     assert options["enable_config_discovery"] is False
@@ -222,6 +227,47 @@ async def test_unrendered_question_gets_one_bounded_card_repair(
         session.disconnect.assert_awaited_once()
     finally:
         await agent.close()
+
+
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        (
+            "show_case_options",
+            {
+                "title": "Printing",
+                "question": "Local or remote checks?",
+                "summary": "Printer not working",
+                "options": [
+                    {"id": "local", "label": "Local checks"},
+                    {"id": "remote", "label": "Remote checks"},
+                ],
+            },
+        ),
+        (
+            "show_case_step",
+            {
+                "title": "Printing",
+                "step": "What error does the printer show?",
+                "summary": "Printer not working",
+                "interaction": "information",
+            },
+        ),
+    ],
+)
+async def test_terminal_question_tools_fail_before_rendering_and_can_be_corrected(
+    snow, memory, principal, name, arguments
+):
+    context = ToolContext(principal, snow, memory, Actions(snow, memory), Mock(), "call")
+    tool = next(tool for tool in build_tools(context) if tool.name == name)
+    assert tool.is_terminal is True
+    assert tool.handler is not None
+    rejected = await tool.handler(ToolInvocation(arguments={}))
+    assert rejected.result_type == "failure"
+    assert context.outbox == []
+    corrected = await tool.handler(ToolInvocation(arguments=arguments))
+    assert corrected.result_type == "success"
+    assert len(context.outbox) == 1
 
 
 async def test_case_step_requires_skill_and_persists_progress(snow, memory, principal):

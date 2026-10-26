@@ -9,16 +9,16 @@ from importlib.metadata import version
 
 from service_desk import cards
 from service_desk.config import Settings
-from service_desk.models import DeskError
+from service_desk.models import DeskError, DraftRequest
 from service_desk.tools import ToolContext
 
 COMMANDS = {
     "feedback": "Provide feedback (optionally add text after the command).",
-    "incident": "Open a new incident form; creation must be enabled and confirmed.",
-    "kb": "Search approved knowledge: /kb printer, or open the search form.",
+    "incident": "Open the issue form, or view an owned incident: /incident INC0012345.",
+    "kb": "Search published knowledge: /kb printer, or open the search form.",
     "agent": "Show agent, model, version, and skill details.",
     "new": "Start fresh; forget model context and invalidate old cases/reviews.",
-    "incidents": "List your incidents, including closed ones; optional page number.",
+    "incidents": "List your incidents, or search: /incidents printer; optional page number.",
     "whoami": "Show your Teams identity and temporary ServiceNow mapping.",
     "help": "Show these commands.",
 }
@@ -40,12 +40,15 @@ def parse_command(text: str) -> Command | None:
     command = Command(match[1].lower(), (match[2] or "").strip())
     if command.name in ("agent", "new", "whoami", "help") and command.argument:
         raise DeskError(f"Usage: /{command.name} (no arguments).")
-    limit = {"feedback": 4000, "incident": 160, "kb": 120, "incidents": 4}.get(command.name)
+    limit = {"feedback": 4000, "incident": 160, "kb": 120, "incidents": 120}.get(command.name)
     if limit and len(command.argument) > limit:
         raise DeskError(f"/{command.name} accepts at most {limit} characters.")
     if command.name == "incidents" and command.argument:
-        if not re.fullmatch(r"[1-9][0-9]{0,3}", command.argument) or int(command.argument) > 1001:
-            raise DeskError("Usage: /incidents or /incidents PAGE (1–1001).")
+        if re.fullmatch(r"-?[0-9]+", command.argument):
+            if not 1 <= int(command.argument) <= 1001:
+                raise DeskError("Usage: /incidents PAGE (1–1001), or /incidents SEARCH.")
+        elif not re.fullmatch(r"[\w .-]{2,120}", command.argument):
+            raise DeskError("Use a short incident search without query operators.")
     return command
 
 
@@ -70,6 +73,9 @@ def agent_card(settings: Settings, skill_names: list[str] | None) -> cards.Card:
         "Skills": ", ".join(skill_names)
         if skill_names
         else ("Skill catalog unavailable." if skill_names is None else "No skills advertised."),
+        "Write confirmation": "Required"
+        if settings.require_write_confirmation
+        else "Off - explicit requests and form submissions commit directly",
     }
     return cards.card(
         "Agent details",
@@ -81,8 +87,12 @@ def agent_card(settings: Settings, skill_names: list[str] | None) -> cards.Card:
                 ],
             },
             cards.text(
-                "Commands bypass the model. ServiceNow changes remain policy-gated "
-                "and require review and an explicit Confirm click.",
+                "Commands bypass the model. ServiceNow changes remain policy-gated. "
+                + (
+                    "Review and an explicit Confirm click are required."
+                    if settings.require_write_confirmation
+                    else "Demo mode skips the separate write review."
+                ),
                 subtle=True,
             ),
             cards.text("Use /help for all supported commands.", subtle=True),
@@ -93,16 +103,30 @@ def agent_card(settings: Settings, skill_names: list[str] | None) -> cards.Card:
 async def run_data_command(command: Command, context: ToolContext) -> cards.Card:
     match command.name:
         case "incident":
+            if re.fullmatch(r"INC[0-9]{1,20}", command.argument, re.IGNORECASE):
+                item = await context.snow.get_incident(context.principal, command.argument.upper())
+                return cards.detail(
+                    item,
+                    context.snow.policy,
+                    context.portal_url,
+                    require_confirmation=context.actions.require_confirmation,
+                    scope_token=context.principal.scope,
+                )
             if not context.snow.policy.allow_create:
                 return cards.notice(
                     "Incident creation is disabled",
                     "This instance does not allow incident creation from chat. "
                     "Open ServiceNow to report an issue directly. No incident was created.",
                 )
-            return cards.intake(title=command.argument)
+            return await context.incident_form(
+                DraftRequest(operation="create", short_description=command.argument)
+            )
         case "incidents":
-            page = int(command.argument) - 1 if command.argument else 0
-            return cards.incidents(await context.snow.list_incidents(context.principal, page), page)
+            is_page = command.argument.isdigit()
+            page = int(command.argument) - 1 if is_page else 0
+            query = command.argument if command.argument and not is_page else ""
+            items = await context.snow.list_incidents(context.principal, page, query=query)
+            return cards.incidents(items, page, query=query)
         case "kb":
             articles = await context.snow.search_knowledge(command.argument)
             return cards.knowledge_results(command.argument, articles)

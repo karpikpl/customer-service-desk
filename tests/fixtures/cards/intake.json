@@ -13,12 +13,12 @@
           "width": "auto",
           "items": [
             {
-              "type": "TextBlock",
-              "text": "Customer",
-              "wrap": true,
-              "size": "ExtraLarge",
-              "isSubtle": false,
-              "weight": "Bolder"
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAVAAAABwAQMAAABy/boYAAAABlBMVEX////JGDKBcLdoAAACEUlEQVR42u2Xv27UQBCHv92z8EmcSEq6+A24miZ+D4q0lJQUSFkJijxGKl4D01FemQ6LinJBV+whZ4diz76zz3+WIhGKPM1e8WnmN+Pf2HswxxxzPNVIxZsYTsN71ASkRDzoyNIKNDgkik5gN1UfUaTxAnhgdCFGb9Rbrp26lq2SkivLc2+uZPPKHeh3wJmUqVtUSvxCpErFIZ4LKUTcpVg4amvNy1BDGWDJs+PKq5aAnGQ/OoDzcGRtke22lpADGYqjp61aqOmOwgwP61s4diYD+DE219dBpLv1Bpd/N40v7poSunZZEGStfLpfUQA5eQZqzdfxp1X06B56sPlpZ4/vLBOPSjSaNyZ4lLbehONXU7RUQ+jnY6fGCFge/c5GUZt2/SybwbZst2w2iL6I1epa708/ZsKqb6kue7P6sLH9vmmjYuLnenPoeD+LcgjdddOqdWNGPbZ/7Ul00bLHBVUHFYCL0p6SNt6vd9Oo7sx4LOteY5VMoe5hP0ZeT6MuLmtxupJ6aOB1/4c1S+pPMyQJ9jykyqXn1VVn/Uill7AMHswMsLKAuBMBHwRlK9ICoLiIGlZZ74gfWBiD9+Bc1/k9G1sE9VXwtg2tlL0CSrYYNj6kcMfVqbd4j/5kwy25mHuAP2xBmu0pWleH6Sve/3Mjmogv4kDDmcjEpVTl/yJAQPe/ezpcwe/5L8EcczzZ+Asn1aTKvUPbRwAAAABJRU5ErkJggg==",
+              "altText": "Customer",
+              "width": "168px",
+              "height": "56px",
+              "backgroundColor": "#FFFFFF"
             }
           ]
         },
@@ -32,7 +32,6 @@
               "text": "SERVICE DESK",
               "wrap": true,
               "size": "Small",
-              "isSubtle": false,
               "weight": "Bolder",
               "horizontalAlignment": "Right"
             },
@@ -54,14 +53,13 @@
       "text": "Report an issue",
       "wrap": true,
       "size": "Large",
-      "isSubtle": false,
       "weight": "Bolder",
       "spacing": "Medium",
       "separator": true
     },
     {
       "type": "TextBlock",
-      "text": "Describe what happened and how it affects your work.",
+      "text": "Capture the issue in one form. Known details are filled in for you.",
       "wrap": true,
       "size": "Default",
       "isSubtle": true
@@ -79,7 +77,7 @@
     {
       "type": "Input.Text",
       "id": "description",
-      "label": "Description and impact",
+      "label": "What happened?",
       "isMultiline": true,
       "isRequired": true,
       "errorMessage": "Please complete this field.",
@@ -87,52 +85,149 @@
       "value": ""
     },
     {
-      "type": "TextBlock",
-      "text": "More to share? Type Feedback: followed by your comments.",
-      "wrap": true,
-      "size": "Small",
-      "isSubtle": true,
-      "spacing": "Medium"
+      "type": "Input.ChoiceSet",
+      "id": "classification",
+      "label": "Category / subcategory",
+      "isRequired": true,
+      "errorMessage": "Choose category / subcategory.",
+      "value": "",
+      "choices": [
+        {
+          "title": "Hardware",
+          "value": "hardware"
+        },
+        {
+          "title": "Software / Email",
+          "value": "software:email"
+        }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "Input.ChoiceSet",
+              "id": "impact",
+              "label": "Impact",
+              "isRequired": true,
+              "errorMessage": "Choose impact.",
+              "value": "",
+              "choices": [
+                {
+                  "title": "Low - one person",
+                  "value": "3"
+                },
+                {
+                  "title": "Medium - team",
+                  "value": "2"
+                },
+                {
+                  "title": "High - widespread",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            {
+              "type": "Input.ChoiceSet",
+              "id": "urgency",
+              "label": "Urgency",
+              "isRequired": true,
+              "errorMessage": "Choose urgency.",
+              "value": "",
+              "choices": [
+                {
+                  "title": "Low - can continue working",
+                  "value": "3"
+                },
+                {
+                  "title": "Medium - workaround available",
+                  "value": "2"
+                },
+                {
+                  "title": "High - blocked, no workaround",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "type": "ActionSet",
-      "id": "response-feedback",
       "actions": [
         {
-          "type": "Action.Execute",
-          "title": "\ud83d\udc4d Helpful",
-          "verb": "feedback_like",
-          "data": {
-            "verb": "feedback_like"
-          },
-          "associatedInputs": "none",
-          "fallback": {
-            "type": "Action.Submit",
-            "title": "\ud83d\udc4d Helpful",
-            "data": {
-              "verb": "feedback_like"
-            },
-            "associatedInputs": "none"
-          }
-        },
-        {
-          "type": "Action.Execute",
-          "title": "\ud83d\udc4e Not helpful",
-          "verb": "feedback_dislike",
-          "data": {
-            "verb": "feedback_dislike"
-          },
-          "associatedInputs": "none",
-          "fallback": {
-            "type": "Action.Submit",
-            "title": "\ud83d\udc4e Not helpful",
-            "data": {
-              "verb": "feedback_dislike"
-            },
-            "associatedInputs": "none"
-          }
+          "type": "Action.ToggleVisibility",
+          "title": "Additional context (optional)",
+          "targetElements": [
+            "incident-context"
+          ]
         }
       ]
+    },
+    {
+      "type": "Container",
+      "id": "incident-context",
+      "isVisible": false,
+      "items": [
+        {
+          "type": "Input.Text",
+          "id": "reported_location",
+          "label": "Reported location",
+          "isMultiline": false,
+          "isRequired": false,
+          "errorMessage": "Please complete this field.",
+          "maxLength": 160,
+          "value": ""
+        },
+        {
+          "type": "Input.Text",
+          "id": "device",
+          "label": "Device / printer",
+          "isMultiline": false,
+          "isRequired": false,
+          "errorMessage": "Please complete this field.",
+          "maxLength": 160,
+          "value": ""
+        },
+        {
+          "type": "Input.Text",
+          "id": "business_impact",
+          "label": "How is work affected?",
+          "isMultiline": true,
+          "isRequired": false,
+          "errorMessage": "Please complete this field.",
+          "maxLength": 500,
+          "value": ""
+        },
+        {
+          "type": "Input.Text",
+          "id": "attempted_steps",
+          "label": "What have you already tried?",
+          "isMultiline": true,
+          "isRequired": false,
+          "errorMessage": "Please complete this field.",
+          "maxLength": 1000,
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Next, review exactly what will be sent. Nothing changes until you confirm.",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true
     }
   ],
   "actions": [
@@ -141,14 +236,18 @@
       "title": "Review incident",
       "verb": "prepare_create",
       "data": {
-        "verb": "prepare_create"
+        "verb": "prepare_create",
+        "action_id": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "scope_token": ""
       },
       "associatedInputs": "auto",
       "fallback": {
         "type": "Action.Submit",
         "title": "Review incident",
         "data": {
-          "verb": "prepare_create"
+          "verb": "prepare_create",
+          "action_id": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "scope_token": ""
         },
         "associatedInputs": "auto"
       }

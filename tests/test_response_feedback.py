@@ -32,12 +32,16 @@ async def test_all_completed_responses_keep_feedback_without_a_generic_portal(
             body = message.attachments[0].content["body"]
             assert not any(item.get("id") == "service-now-portal" for item in body)
             assert "https://mock.service-now.com/sp" not in str(body)
-            feedback = next(item for item in body if item.get("id") == "response-feedback")
-            assert [a["verb"] for a in feedback["actions"]] == ["feedback_like", "feedback_dislike"]
+            assert not any(item.get("id") == "response-feedback" for item in body)
+            assert "feedback_like" not in str(body)
+            assert "feedback_dislike" not in str(body)
         assert message.text is None
 
 
-async def test_native_feedback_does_not_replace_card_or_require_snow(monkeypatch, activity):
+@pytest.mark.parametrize("reaction,rating", [("like", "positive"), ("dislike", "negative")])
+async def test_native_feedback_does_not_replace_card_or_require_snow(
+    monkeypatch, activity, reaction, rating
+):
     host, runtime = compose(monkeypatch, None)
     monkeypatch.setattr("service_desk.main.hosted_call_id", lambda: "authenticated-call")
     runtime.turn = Mock(side_effect=AssertionError("Feedback must not load ServiceNow"))
@@ -48,7 +52,7 @@ async def test_native_feedback_does_not_replace_card_or_require_snow(monkeypatch
         value={
             "actionName": "feedback",
             "actionValue": {
-                "reaction": "dislike",
+                "reaction": reaction,
                 "feedback": '{"feedbackText":"Please add follow-up actions"}',
             },
         },
@@ -65,7 +69,8 @@ async def test_native_feedback_does_not_replace_card_or_require_snow(monkeypatch
     assert response.value.body == {}
     runtime.feedback.record.assert_called_once()
     assert runtime.feedback.record.call_args.kwargs["response_id"] == "incident-card"
-    assert runtime.feedback.record.call_args.kwargs["rating"] == "negative"
+    assert runtime.feedback.record.call_args.kwargs["rating"] == rating
+    assert runtime.feedback.record.call_args.kwargs["source"] == "native"
     turn.update_activity.assert_not_awaited()
     runtime.turn.assert_not_called()
     assert not runtime.pending
@@ -84,7 +89,7 @@ async def test_native_feedback_fails_explicitly_off_platform(monkeypatch, activi
 @pytest.mark.parametrize(
     "verb,rating", [("feedback_like", "positive"), ("feedback_dislike", "negative")]
 )
-async def test_explicit_card_thumbs_preserve_original_card(monkeypatch, activity, verb, rating):
+async def test_legacy_card_thumbs_preserve_original_card(monkeypatch, activity, verb, rating):
     host, runtime = compose(monkeypatch, None)
     monkeypatch.setattr("service_desk.main.hosted_call_id", lambda: "authenticated-call")
     runtime.turn = Mock(side_effect=AssertionError("Ratings must not load ServiceNow"))

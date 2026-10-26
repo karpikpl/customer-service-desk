@@ -45,9 +45,18 @@ class CardAction(Model):
     ]
     incident: IncidentNumber | None = None
     action_id: str = Field(default="", pattern=r"^(?:[a-f0-9]{32})?$")
+    scope_token: str = Field(default="", pattern=r"^(?:[a-f0-9]{64})?$")
+    incident_query: str = Field(default="", max_length=120)
     page: int = Field(default=0, ge=0, le=1000)
     title: str = Field(default="", max_length=160)
     description: str = Field(default="", max_length=4000)
+    classification: str = Field(default="", max_length=81)
+    impact: Literal["", "1", "2", "3"] = ""
+    urgency: Literal["", "1", "2", "3"] = ""
+    reported_location: str = Field(default="", max_length=160)
+    device: str = Field(default="", max_length=160)
+    business_impact: str = Field(default="", max_length=500)
+    attempted_steps: str = Field(default="", max_length=1000)
     comment: str = Field(default="", max_length=4000)
     resolution_code: str = Field(default="", max_length=120)
     resolution_notes: str = Field(default="", max_length=4000)
@@ -111,22 +120,48 @@ async def dispatch(context: ToolContext, action: CardAction) -> tuple[cards.Card
     principal, snow = context.principal, context.snow
     match action.verb:
         case "home":
-            return cards.welcome(), ""
+            return cards.welcome(require_confirmation=context.actions.require_confirmation), ""
         case "list":
-            items = await snow.list_incidents(principal, action.page)
-            return cards.incidents(items, action.page), ""
+            items = await snow.list_incidents(principal, action.page, query=action.incident_query)
+            return cards.incidents(items, action.page, query=action.incident_query), ""
         case "view" | "comment_form" | "resolve_form":
             if not action.incident:
                 raise DeskError("Choose an incident first.")
             incident = await snow.get_incident(principal, action.incident)
             if action.verb == "comment_form" and snow.policy.allow_comments:
-                return cards.comment_form(incident.number), ""
+                return cards.comment_form(
+                    incident.number,
+                    require_confirmation=context.actions.require_confirmation,
+                    scope_token=principal.scope,
+                ), ""
             if action.verb == "resolve_form" and incident.state in snow.policy.resolve_from:
-                return cards.resolve_form(incident.number, snow.policy), ""
-            return cards.detail(incident, snow.policy, context.portal_url), ""
+                return cards.resolve_form(
+                    incident.number,
+                    snow.policy,
+                    require_confirmation=context.actions.require_confirmation,
+                    scope_token=principal.scope,
+                ), ""
+            return cards.detail(
+                incident,
+                snow.policy,
+                context.portal_url,
+                require_confirmation=context.actions.require_confirmation,
+                scope_token=principal.scope,
+            ), ""
         case "intake":
-            return cards.intake(), ""
+            return await context.incident_form(), ""
         case "prepare_create" | "prepare_comment" | "prepare_resolve" | "prepare_reopen":
+            if not context.actions.require_confirmation and (
+                not action.action_id or not action.scope_token
+            ):
+                raise DeskError("This form is outdated. Open a new form before submitting.")
+            if action.scope_token and action.scope_token != principal.scope:
+                raise DeskError("This form is unavailable in this conversation. Open a new form.")
+            if action.verb == "prepare_create" and not all(
+                (action.classification.strip(), action.impact, action.urgency)
+            ):
+                raise DeskError("Choose a category, impact and urgency in the incident form.")
+            category, _, subcategory = action.classification.partition(":")
             operations = {
                 "prepare_create": "create",
                 "prepare_comment": "comment",
@@ -139,13 +174,25 @@ async def dispatch(context: ToolContext, action: CardAction) -> tuple[cards.Card
                     "incident_number": action.incident,
                     "short_description": action.title,
                     "description": action.description,
+                    "category": category,
+                    "subcategory": subcategory,
+                    "impact": action.impact,
+                    "urgency": action.urgency,
+                    "reported_location": action.reported_location,
+                    "device": action.device,
+                    "business_impact": action.business_impact,
+                    "attempted_steps": action.attempted_steps,
                     "comment": action.comment,
                     "resolution_code": action.resolution_code,
                     "resolution_notes": action.resolution_notes,
                 }
             )
-            draft = await context.actions.prepare(principal, request)
-            return cards.review(draft), ""
+            draft = await context.actions.submit(principal, request, action.action_id)
+            return (
+                cards.receipt(draft, context.portal_url)
+                if draft.status == "succeeded"
+                else cards.review(draft)
+            ), ""
         case "confirm":
             result = await context.actions.confirm(principal, action.action_id)
             return cards.receipt(result, context.portal_url), ""
@@ -158,11 +205,22 @@ async def dispatch(context: ToolContext, action: CardAction) -> tuple[cards.Card
             request = draft.request
             match request.operation:
                 case "create":
-                    return cards.intake(request.short_description, request.description), ""
+                    return await context.incident_form(request), ""
                 case "comment":
-                    return cards.comment_form(request.incident_number or "", request.comment), ""
+                    return cards.comment_form(
+                        request.incident_number or "",
+                        request.comment,
+                        require_confirmation=context.actions.require_confirmation,
+                        scope_token=principal.scope,
+                    ), ""
                 case "resolve":
-                    return cards.resolve_form(request.incident_number or "", snow.policy), ""
+                    return cards.resolve_form(
+                        request.incident_number or "",
+                        snow.policy,
+                        request=request,
+                        require_confirmation=context.actions.require_confirmation,
+                        scope_token=principal.scope,
+                    ), ""
                 case _:
                     return cards.notice("Review cancelled", "Choose the incident to reopen it."), ""
         case "troubleshoot":
@@ -256,15 +314,25 @@ async def dispatch(context: ToolContext, action: CardAction) -> tuple[cards.Card
             await context.state.replace(context.case_key, updated.model_dump(), item.etag)
             return None, instruction + (
                 "\nDo not change any incident without a separate review and Confirm click."
+                if context.actions.require_confirmation
+                else "\nAn answer or outcome is not a request to change an incident. "
+                "Only submit a change the user explicitly requests."
             )
         case "case_intake":
             progress = await context.active_case()
             if not progress or action.case_token != progress.step_token:
                 raise DeskError("This case card is outdated. Continue from the latest step.")
-            return cards.intake("Issue requiring service desk assistance", progress.summary), ""
+            return await context.incident_form(
+                DraftRequest(
+                    operation="create",
+                    short_description="Issue requiring service desk assistance",
+                    description=progress.summary,
+                    category="hardware" if progress.skill_name == "printer-troubleshooting" else "",
+                )
+            ), ""
         case "reset_case":
             item = await context.state.get(context.case_key)
             if item:
                 await context.state.replace(context.case_key, {}, item.etag)
-            return cards.welcome(), ""
+            return cards.welcome(require_confirmation=context.actions.require_confirmation), ""
     raise DeskError("This card action is unsupported.")

@@ -132,6 +132,35 @@ async def snow(policy: SnowPolicy, record: dict[str, Any], requests: list[httpx.
     def handle(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         if request.method == "GET":
+            if request.url.path.endswith("/sys_choice"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "result": [
+                            {
+                                "name": "incident",
+                                "element": "category",
+                                "value": "hardware",
+                                "label": "Hardware",
+                                "dependent_value": "",
+                            },
+                            {
+                                "name": "incident",
+                                "element": "category",
+                                "value": "software",
+                                "label": "Software",
+                                "dependent_value": "",
+                            },
+                            {
+                                "name": "incident",
+                                "element": "subcategory",
+                                "value": "email",
+                                "label": "Email",
+                                "dependent_value": "software",
+                            },
+                        ]
+                    },
+                )
             return httpx.Response(200, json={"result": [record]})
         payload = json.loads(request.content)
         result = {**record, **payload, "sys_mod_count": "2"}

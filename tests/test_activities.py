@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -26,6 +27,7 @@ def test_execute_and_submit_share_normalization():
     [
         {"verb": "confirm", "action_id": "../../other-user"},
         {"verb": "confirm", "caller_id": "another"},
+        {"verb": "prepare_comment", "display_name": "Someone else"},
         {"verb": "list", "page": -1},
         {"verb": "delete_all"},
     ],
@@ -64,7 +66,28 @@ async def test_edit_cancels_old_draft_before_new_form(snow, memory, principal, r
     assert result["body"][1]["text"] == "Report an issue"
     with pytest.raises(DeskError):
         await actions.confirm(principal, draft.id)
-    assert not requests
+    assert all(request.method == "GET" for request in requests)
+
+
+async def test_edit_comment_does_not_duplicate_attribution(snow, memory, principal):
+    from service_desk.models import DraftRequest
+
+    principal = principal.model_copy(update={"display_name": "Adele Vance"})
+    actions = Actions(snow, memory)
+    context = ToolContext(principal, snow, memory, actions, Mock(), "call")
+    draft = await actions.prepare(
+        principal,
+        DraftRequest(operation="comment", incident_number="INC0012345", comment="Still stuck"),
+    )
+    form, _ = await dispatch(context, CardAction(verb="edit", action_id=draft.id))
+    assert (
+        next(item for item in form["body"] if item.get("id") == "comment")["value"] == "Still stuck"
+    )
+    review, _ = await dispatch(
+        context,
+        CardAction(verb="prepare_comment", incident="INC0012345", comment="Still stuck"),
+    )
+    assert json.dumps(review).count("Submitted by") == 1
 
 
 async def test_model_tool_cannot_confirm_or_change_identity(snow, memory, principal, requests):
@@ -88,8 +111,8 @@ async def test_model_tool_cannot_confirm_or_change_identity(snow, memory, princi
         )
     )
     assert good.result_type == "success"
-    assert context.outbox[0]["body"][1]["text"] == "Review your change"
-    assert not requests
+    assert context.outbox[0]["body"][1]["text"] == "Report an issue"
+    assert all(request.method == "GET" for request in requests)
 
 
 async def test_old_case_card_cannot_advance_current_step(snow, memory, principal):

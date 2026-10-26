@@ -163,7 +163,7 @@ async def test_application_client_filters_and_reads_owned_mock_incident(
         await client.close()
 
 
-async def test_printer_knowledge_reads_only_published_allowlisted_demo_articles(
+async def test_printer_knowledge_reads_published_demo_articles_without_allowlists(
     live_http, live_configuration
 ):
     records = await read_records(
@@ -186,12 +186,7 @@ async def test_printer_knowledge_reads_only_published_allowlisted_demo_articles(
     demo = [record for record in records if record.get("short_description") in titles]
     if not demo:
         pytest.skip("Optional printer demo articles have not been seeded.")
-    policy = SnowPolicy(
-        employee_knowledge_bases=list({record["kb_knowledge_base"] for record in demo}),
-        employee_knowledge_articles=[record["sys_id"] for record in demo],
-        knowledge_audience_verified=True,
-    )
-    client = SnowClient(live_configuration.url, live_configuration.credentials, policy)
+    client = SnowClient(live_configuration.url, live_configuration.credentials, SnowPolicy())
     try:
         articles = await client.search_knowledge("Printer troubleshooting - ")
         expected = {

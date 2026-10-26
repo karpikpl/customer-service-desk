@@ -219,7 +219,7 @@ async def test_loading_skill_preserves_a_general_decision_but_requires_fresh_kno
         context, "show_case_step", title="Check", step="Check the status.", summary="Email issue"
     )
     assert result.result_type == "failure"
-    assert "Search approved knowledge" in result.text_result_for_llm
+    assert "Search ServiceNow knowledge" in result.text_result_for_llm
 
 
 async def test_explicit_new_topic_repins_skill_and_invalidates_old_choices(context):

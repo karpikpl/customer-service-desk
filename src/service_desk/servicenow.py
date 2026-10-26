@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Any
 
 import httpx
+from opentelemetry import trace
 from pydantic import TypeAdapter, ValidationError
 
+from service_desk import telemetry
 from service_desk.config import Credentials, SnowPolicy
 from service_desk.models import Article, DeskError, Draft, Incident, IncidentNumber, Principal
 
@@ -37,6 +40,7 @@ class SnowClient:
     ) -> None:
         self.url = url
         self.policy = policy
+        self._classifications: tuple[float, dict[str, str]] | None = None
         self.http = httpx.AsyncClient(
             base_url=url + "/api/now/table/",
             auth=httpx.BasicAuth(
@@ -72,6 +76,7 @@ class SnowClient:
         except ValidationError as exc:
             raise DeskError("ServiceNow returned an invalid incident record.") from exc
 
+    @telemetry.traced("servicenow.request")
     async def _request(
         self,
         method: str,
@@ -80,6 +85,16 @@ class SnowClient:
         params: dict[str, str],
         payload: dict[str, str] | None = None,
     ) -> Any:
+        span = trace.get_current_span()
+        span.set_attribute("http.request.method", method)
+        resource = (
+            "knowledge"
+            if path == "kb_knowledge"
+            else "incident_choices"
+            if path == "sys_choice"
+            else "incident"
+        )
+        span.set_attribute("desk.resource", resource)
         try:
             response = await self.http.request(
                 method,
@@ -92,6 +107,7 @@ class SnowClient:
             )
         except httpx.HTTPError as exc:
             raise DeskError("ServiceNow could not be reached. Please try a safe refresh.") from exc
+        span.set_attribute("http.response.status_code", response.status_code)
         if not response.is_success:
             if response.status_code in (401, 403):
                 raise DeskError("ServiceNow denied this operation. Contact service desk support.")
@@ -104,14 +120,21 @@ class SnowClient:
         except (ValueError, KeyError, TypeError) as exc:
             raise DeskError("ServiceNow returned an invalid response.") from exc
 
-    async def list_incidents(self, principal: Principal, page: int = 0) -> list[Incident]:
+    async def list_incidents(
+        self, principal: Principal, page: int = 0, *, query: str = ""
+    ) -> list[Incident]:
         if page < 0 or page > 1000:
             raise DeskError("This incident page is invalid.")
+        if query and not re.fullmatch(r"[\w .-]{2,120}", query):
+            raise DeskError("Use a short incident search without query operators.")
+        search = f"^short_descriptionLIKE{query}" if query else ""
         result = await self._request(
             "GET",
             "incident",
             params={
-                "sysparm_query": f"caller_id={principal.caller_id}^ORDERBYDESCsys_updated_on",
+                "sysparm_query": (
+                    f"caller_id={principal.caller_id}{search}^ORDERBYDESCsys_updated_on"
+                ),
                 "sysparm_fields": _FIELDS,
                 "sysparm_limit": "5",
                 "sysparm_offset": str(page * 5),
@@ -144,25 +167,14 @@ class SnowClient:
         return self._incident(result[0], principal)
 
     async def search_knowledge(self, query: str) -> list[Article]:
-        if not self.policy.knowledge_audience_verified or not self.policy.employee_knowledge_bases:
-            raise DeskError(
-                "Approved ServiceNow knowledge is unavailable. Any advice is general guidance."
-            )
         if not re.fullmatch(r"[\w .-]{2,120}", query):
             raise DeskError("Use a short knowledge search without query operators.")
-        bases = ",".join(self.policy.employee_knowledge_bases)
-        article_filter = (
-            "^sys_idIN" + ",".join(self.policy.employee_knowledge_articles)
-            if self.policy.employee_knowledge_articles
-            else ""
-        )
         result = await self._request(
             "GET",
             "kb_knowledge",
             params={
                 "sysparm_query": (
-                    f"workflow_state=published^active=true^kb_knowledge_baseIN{bases}"
-                    f"{article_filter}^short_descriptionLIKE{query}"
+                    f"workflow_state=published^active=true^short_descriptionLIKE{query}"
                 ),
                 "sysparm_fields": "sys_id,number,short_description,text",
                 "sysparm_limit": "3",
@@ -178,13 +190,6 @@ class SnowClient:
             sys_id = _value(record, "sys_id")
             if not re.fullmatch(r"[a-f0-9]{32}", sys_id):
                 raise DeskError("ServiceNow returned an invalid knowledge identifier.")
-            if (
-                self.policy.employee_knowledge_articles
-                and sys_id not in self.policy.employee_knowledge_articles
-            ):
-                raise DeskError(
-                    "ServiceNow returned an article outside the approved knowledge set."
-                )
             articles.append(
                 Article(
                     number=_value(record, "number"),
@@ -194,6 +199,51 @@ class SnowClient:
                 )
             )
         return articles
+
+    async def incident_classifications(self) -> dict[str, str]:
+        if self._classifications and self._classifications[0] > time.monotonic():
+            return dict(self._classifications[1])
+        result = await self._request(
+            "GET",
+            "sys_choice",
+            params={
+                "sysparm_query": (
+                    "nameINincident,task^elementINcategory,subcategory"
+                    "^inactive=false^language=en^ORDERBYsequence^ORDERBYlabel"
+                ),
+                "sysparm_fields": "name,element,value,label,dependent_value",
+                "sysparm_limit": "200",
+                "sysparm_display_value": "false",
+            },
+        )
+        if not isinstance(result, list) or len(result) >= 200:
+            raise DeskError("Incident choices are unavailable or too large. Contact support.")
+        if any(not isinstance(item, dict) for item in result):
+            raise DeskError("ServiceNow returned invalid incident choices.")
+        categories: dict[str, str] = {}
+        for table in ("task", "incident"):
+            for item in result:
+                if _value(item, "name") != table or _value(item, "element") != "category":
+                    continue
+                value, label = _value(item, "value"), _value(item, "label")
+                if not re.fullmatch(r"[\w .-]{1,40}", value) or not label.strip():
+                    raise DeskError("ServiceNow returned an invalid incident category.")
+                categories[value] = label[:120]
+        if not categories:
+            raise DeskError("Incident categories could not be loaded. Contact support.")
+        choices = dict(categories)
+        for item in result:
+            if _value(item, "element") != "subcategory":
+                continue
+            parent, value = _value(item, "dependent_value"), _value(item, "value")
+            label = _value(item, "label")
+            if parent not in categories:
+                continue
+            if not re.fullmatch(r"[\w .-]{1,40}", value) or not label.strip():
+                raise DeskError("ServiceNow returned an invalid incident subcategory.")
+            choices[f"{parent}:{value}"] = f"{categories[parent]} / {label[:120]}"
+        self._classifications = (time.monotonic() + 300, choices)
+        return dict(choices)
 
     async def execute(self, principal: Principal, draft: Draft) -> Incident:
         """Only the confirmed-action service calls this method; never registered as a model tool."""

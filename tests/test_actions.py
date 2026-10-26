@@ -25,6 +25,7 @@ async def test_create_requires_review_and_has_exact_caller(snow, memory, princip
         "caller_id": principal.caller_id,
         "short_description": "Printer",
         "description": "Offline",
+        "contact_type": "virtual_agent",
     }
     again = await actions.confirm(principal, draft.id)
     assert again.status == "succeeded"
@@ -32,17 +33,59 @@ async def test_create_requires_review_and_has_exact_caller(snow, memory, princip
     assert requests[1].method == "GET"
 
 
-async def test_comment_requires_review(snow, memory, principal, requests):
+@pytest.mark.parametrize("display_name", ["Adele Vance", ""])
+async def test_comment_requires_review(snow, memory, principal, requests, display_name):
+    from service_desk import cards
+
+    principal = principal.model_copy(update={"display_name": display_name})
     actions = Actions(snow, memory)
     draft = await actions.prepare(
         principal,
         DraftRequest(operation="comment", incident_number="INC0012345", comment="Still stuck"),
     )
+    author = (
+        f"Adele Vance (Teams user: {principal.object_id})"
+        if display_name
+        else f"Teams user: {principal.object_id}"
+    )
+    expected = f"Submitted by {author} via Service Desk.\n\nStill stuck"
+    assert draft.payload == {"comments": expected}
+    assert draft.request.comment == "Still stuck"
+    assert any(item.get("text") == cards.escaped(expected) for item in cards.review(draft)["body"])
     assert all(r.method == "GET" for r in requests)
     await actions.confirm(principal, draft.id)
     write = next(request for request in requests if request.method == "PATCH")
-    assert json.loads(write.content) == {"comments": "Still stuck"}
+    assert json.loads(write.content) == {"comments": expected}
     assert "work_notes" not in write.content.decode()
+
+
+async def test_changed_attribution_requires_new_review(snow, memory, principal, requests):
+    actions = Actions(snow, memory)
+    principal = principal.model_copy(update={"display_name": "Adele Vance"})
+    draft = await actions.prepare(
+        principal,
+        DraftRequest(operation="comment", incident_number="INC0012345", comment="Still stuck"),
+    )
+    changed = principal.model_copy(update={"display_name": "Different Name"})
+    with pytest.raises(DeskError, match="changed"):
+        await actions.confirm(changed, draft.id)
+    assert all(request.method == "GET" for request in requests)
+
+
+async def test_attributed_comment_review_preserves_full_comment(snow, memory, principal):
+    from service_desk import cards
+
+    principal = principal.model_copy(update={"display_name": "A" * 80})
+    comment = "!" * 4000
+    draft = await Actions(snow, memory).prepare(
+        principal,
+        DraftRequest(operation="comment", incident_number="INC0012345", comment=comment),
+    )
+    expected = cards.escaped(draft.payload["comments"], limit=4500)
+    assert expected.endswith(r"\!" * 4000)
+    review = cards.review(draft)
+    assert any(item.get("text") == expected for item in review["body"])
+    assert len(json.dumps(review).encode()) < 24000
 
 
 @pytest.mark.parametrize("operation", ["create", "comment"])

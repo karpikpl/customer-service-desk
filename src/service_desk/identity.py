@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping as MappingABC
 from typing import Any
 from uuid import UUID
@@ -28,11 +29,16 @@ class IdentityMapper:
         caller = self._identities.get((tenant, object_id))
         if not caller:
             return None
+        name = activity["from"].get("name")
+        display_name = (
+            " ".join(re.sub(r"<[^>]*>", "", name).split())[:80] if isinstance(name, str) else ""
+        )
         return Principal(
             tenant_id=tenant,
             object_id=object_id,
             caller_id=caller,
             conversation_id=conversation_id,
+            display_name=display_name,
         )
 
 

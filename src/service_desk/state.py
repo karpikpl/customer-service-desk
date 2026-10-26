@@ -15,6 +15,7 @@ from azure.ai.agentserver.core.storage import (
 from azure.core.credentials_async import AsyncTokenCredential
 from pydantic import Field
 
+from service_desk import telemetry
 from service_desk.models import DeskError, Model, Principal
 
 
@@ -75,12 +76,15 @@ class FoundryState:
         self.call_id = call_id
 
     @classmethod
-    async def open(cls, credential: AsyncTokenCredential) -> FoundryState:
+    @telemetry.traced("state.open")
+    async def open(
+        cls, credential: AsyncTokenCredential, *, store_name: str = "customer-service-desk-v1"
+    ) -> FoundryState:
         call_id = get_request_context().call_id
         if not call_id:
             raise DeskError("Foundry caller context is required for durable service desk state.")
         store = await FoundryStateStore.get_or_create(
-            "customer-service-desk-v1",
+            store_name,
             credential,
             user_isolation=True,
             item_ttl_seconds=30 * 24 * 3600,
@@ -104,16 +108,19 @@ class FoundryState:
             raise DeskError("The verified Foundry caller context is missing.")
         return str(call_id)
 
+    @telemetry.traced("state.get")
     async def get(self, key: str) -> Item | None:
         item = await self.store.get_item(key, call_id=self._call_id())
         return Item(dict(item.value), item.etag) if item else None
 
+    @telemetry.traced("state.create")
     async def create(self, key: str, value: dict[str, Any]) -> None:
         try:
             await self.store.create_item(key, value, call_id=self._call_id())
         except FoundryStorageConflictError as exc:
             raise DeskError("This action already exists. Refresh its review.") from exc
 
+    @telemetry.traced("state.replace")
     async def replace(self, key: str, value: dict[str, Any], etag: str) -> None:
         try:
             await self.store.set_item(key, value, if_match=etag, call_id=self._call_id())

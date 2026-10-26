@@ -31,6 +31,28 @@ def test_user_message_cannot_override_identity(activity, mapping):
     assert IdentityMapper(TENANT, mapping).resolve(activity).caller_id == "1" * 32
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("Adele Vance", "Adele Vance"),
+        (" <b>Adele</b>\n  Vance ", "Adele Vance"),
+        ("A" * 100, "A" * 80),
+        (None, ""),
+        ({"name": "Someone else"}, ""),
+    ],
+)
+def test_display_name_comes_from_teams_sender(activity, mapping, name, expected):
+    activity["from"]["name"] = name
+    activity["text"] = "Submitted by Someone Else"
+    activity["value"] = {"display_name": "Someone Else"}
+    principal = IdentityMapper(TENANT, mapping).resolve(activity)
+    assert principal.display_name == expected
+    del activity["from"]["name"]
+    without_name = IdentityMapper(TENANT, mapping).resolve(activity)
+    assert without_name.display_name == ""
+    assert without_name.scope == principal.scope
+
+
 @pytest.mark.parametrize("field", ["aadObjectId", "tenant"])
 def test_missing_identity_is_denied(activity, mapping, field):
     if field == "aadObjectId":

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -39,6 +40,13 @@ class Settings(BaseSettings):
     policy_secret: str = "service-desk-snow-policy"
     local_config_file: Path | None = None
     confirmation_ttl: int = Field(default=600, ge=60, le=3600)
+    require_write_confirmation: bool = True
+    state_store_name: str = Field(
+        default="customer-service-desk-v1", pattern=r"^[a-z][a-z0-9-]{2,63}$"
+    )
+    session_directory: str = Field(
+        default=".customer-service-desk", pattern=r"^\.[a-z][a-z0-9-]{2,63}$"
+    )
 
     @field_validator("tenant_id")
     @classmethod
@@ -95,9 +103,24 @@ class SnowPolicy(Model):
     reopen_from: list[str] = Field(default_factory=list)
     reopened_state: str = ""
     resolution_codes: list[str] = Field(default_factory=list)
-    employee_knowledge_bases: list[SysId] = Field(default_factory=list)
-    employee_knowledge_articles: list[SysId] = Field(default_factory=list)
-    knowledge_audience_verified: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def retire_knowledge_allowlists(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        legacy = {
+            "employee_knowledge_bases",
+            "employee_knowledge_articles",
+            "knowledge_audience_verified",
+        }
+        if legacy.intersection(value):
+            logging.getLogger("service_desk").warning(
+                "Legacy knowledge allowlists are ignored. Published knowledge uses "
+                "the ServiceNow integration account's permissions."
+            )
+            return {key: item for key, item in value.items() if key not in legacy}
+        return value
 
     @model_validator(mode="after")
     def transitions(self) -> Self:

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "printer-local-overview",
+    "question": "What are the basic local printer troubleshooting checks? I am at the printer.",
+    "query": "Printer troubleshooting",
+    "expected_behavior": "Give a concise overview grounded in the local-checks article only, cite it, and do not mix in remote checks or claim the issue is fixed.",
+    "expected_titles": ["Printer troubleshooting - local checks"],
+    "forbidden_citation_titles": ["Printer troubleshooting - remote checks"],
+    "expect_abstention": false
+  },
+  {
+    "id": "printer-remote-active",
+    "question": "My printer is not printing. I selected remote checks. What should I do first?",
+    "query": "Printer troubleshooting",
+    "expected_behavior": "Give one safe next step from the remote-checks article, cite it, and ask for the outcome. Do not give a whole mixed local/remote procedure or claim to perform remote control.",
+    "expected_titles": ["Printer troubleshooting - remote checks"],
+    "forbidden_citation_titles": ["Printer troubleshooting - local checks"],
+    "expect_abstention": false
+  },
+  {
+    "id": "automatic-replies",
+    "question": "How do I set up an out-of-office automatic reply in Outlook?",
+    "query": "Automatic Replies",
+    "expected_behavior": "Explain the sourced automatic-reply procedure, cite the article, and qualify legacy version-specific UI instead of claiming it describes every current Outlook client.",
+    "expected_titles": ["Automatic Replies (Out Of Office)"],
+    "forbidden_citation_titles": [],
+    "expect_abstention": false
+  },
+  {
+    "id": "deleted-email",
+    "question": "I accidentally deleted an email. What recovery options does our KB describe?",
+    "query": "Deleted Email",
+    "expected_behavior": "Explain only sourced recovery options and limitations, cite them, and do not promise recovery or claim to restore anything.",
+    "expected_titles": ["Deleted Email Recovery"],
+    "forbidden_citation_titles": [],
+    "expect_abstention": false
+  },
+  {
+    "id": "misleading-outlook-title",
+    "question": "Outlook keeps crashing on startup. Give me the crash-repair steps from the Microsoft Outlook Issues article.",
+    "query": "Microsoft Outlook Issues",
+    "expected_behavior": "The body covers Outlook automatic replies, not a crash fix. Explain that mismatch and abstain from inventing a crash-repair procedure based on the broad title.",
+    "expected_titles": [],
+    "forbidden_citation_titles": [],
+    "expect_abstention": true
+  },
+  {
+    "id": "no-evidence",
+    "question": "Give me the company-approved firmware recovery procedure for a quantum printer.",
+    "query": "quantum printer",
+    "expected_behavior": "State no relevant KB evidence was found, ask for a real model or offer service-desk escalation; do not invent firmware steps or citations.",
+    "expected_titles": [],
+    "forbidden_citation_titles": [],
+    "expect_abstention": true
+  }
+]
