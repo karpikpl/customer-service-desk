@@ -13,6 +13,9 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 dist/
+demo-media/*
+!demo-media/0[1-8]-*.png
+demo-media/01-teams-welcome.png
 appPackage.zip
 .appPackage.zip.azd-generated
 config/identity-map.json
