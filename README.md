@@ -12,6 +12,35 @@ subscription. Shell/file tools, automatic config discovery, MCP tools, and
 permission approval are disabled; only explicitly registered service desk tools
 are exposed to the model.
 
+## See it in Teams
+
+[Watch or download the narrated demo (1 min 55 sec, MP4)](https://github.com/karpikpl/customer-service-desk/raw/refs/heads/main/demo-media/customer-service-desk-demo.mp4).
+The recording shows the deployed agent's welcome, printer-path selection,
+incident lookup, and issue-reporting form. It uses demo data and does not
+submit a ServiceNow change.
+
+### Screenshots
+
+Select an image to view it at full size. The screenshots also show a filled
+incident form, exact-change review, and cancellation.
+
+| Welcome | Guided printer choices |
+| --- | --- |
+| ![Customer-branded welcome with incident, reporting, and troubleshooting actions](demo-media/01-welcome.png) | ![Printer troubleshooting card offering local and remote checks](demo-media/02-printer-paths.png) |
+
+| Incident search | Incident detail |
+| --- | --- |
+| ![Caller-scoped printer incident search with status, priority, and pagination](demo-media/04-incident-search.png) | ![Incident detail with description, latest update, and follow-up actions](demo-media/05-incident-detail.png) |
+
+| Incident form | Review before submitting |
+| --- | --- |
+| ![Filled incident form including category, impact, urgency, and optional context](demo-media/06-incident-form.png) | ![Exact incident payload review with confirm, edit, and cancel actions](demo-media/07-incident-review.png) |
+
+Additional screenshots: [sourced local printer guidance](demo-media/03-printer-local-guidance.png)
+and [cancelled change with no ServiceNow submission](demo-media/08-cancelled.png).
+
+## Overview
+
 This repository uses neutral **Customer** branding and the project/display names
 `customer-service-desk` / **Customer Service Desk**. The checked-in agent service
 also uses the backend name `customer-service-desk`. Existing installations with

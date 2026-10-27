@@ -15,6 +15,7 @@ __pycache__/
 dist/
 demo-media/*
 !demo-media/0[1-8]-*.png
+!demo-media/customer-service-desk-demo.mp4
 demo-media/01-teams-welcome.png
 appPackage.zip
 .appPackage.zip.azd-generated
